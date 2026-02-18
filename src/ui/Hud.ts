@@ -7,6 +7,7 @@ import {
   TIMER_URGENCY_CRITICAL_SEC,
   TIMER_URGENCY_HIGH_SEC
 } from "../core/constants";
+import { worldAngleToIso } from "../core/iso";
 import { LoseReason, RescueMode, RunState } from "../systems/RescueSystem";
 import { DangerPhase } from "../systems/DangerZone";
 import { TerrainType } from "../world/Terrain";
@@ -217,7 +218,7 @@ export class Hud {
     this.modeText.setText(`MODE: ${view.mode}`);
     this.objectiveText.setText(`OBJECTIVE: ${view.objective}`);
     this.signalText.setText(`SIGNAL: ${view.signal}`);
-    this.directionArrow.rotation = view.directionAngleRad + Math.PI / 2;
+    this.directionArrow.rotation = worldAngleToIso(view.directionAngleRad) + Math.PI / 2;
     this.probeText.setText(`PROBES: ${view.probesRemaining}`);
     this.timerText.setText(`TIME: ${this.formatTime(view.timerSec)}`);
 

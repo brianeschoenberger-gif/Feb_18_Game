@@ -7,6 +7,8 @@ import {
   DANGER_GROWTH_IDLE_PER_SEC,
   DANGER_INITIAL_RADIUS
 } from "../core/constants";
+import { ISO_X_SCALE, ISO_Y_SCALE } from "../core/constants";
+import { worldToIso } from "../core/iso";
 
 export type DangerPhase = "IDLE" | "AFTER_STRIKE" | "AFTER_SECURE";
 
@@ -110,14 +112,18 @@ export class DangerZone {
     const strokeAlpha = Phaser.Math.Linear(0.7, 0.98, pulseValue);
     const strokeWidth = Phaser.Math.Linear(2.5, 5.2, pulseValue);
 
+    const center = worldToIso(this.center.x, this.center.y);
+    const width = this.radius * ISO_X_SCALE * 2;
+    const height = this.radius * ISO_Y_SCALE * 2;
+
     this.graphics.clear();
     this.graphics.fillStyle(0xb52929, fillAlpha);
-    this.graphics.fillCircle(this.center.x, this.center.y, this.radius);
+    this.graphics.fillEllipse(center.x, center.y, width, height);
 
     this.graphics.lineStyle(strokeWidth, 0xff5a5a, strokeAlpha);
-    this.graphics.strokeCircle(this.center.x, this.center.y, this.radius);
+    this.graphics.strokeEllipse(center.x, center.y, width, height);
 
     this.graphics.lineStyle(1.4, 0xff9e9e, 0.5);
-    this.graphics.strokeCircle(this.center.x, this.center.y, this.radius + 12 + pulseValue * 8);
+    this.graphics.strokeEllipse(center.x, center.y, width + 24 + pulseValue * 16, height + 12 + pulseValue * 8);
   }
 }

@@ -41,12 +41,14 @@ interface RescueSystemOptions {
   readonly scene: Phaser.Scene;
   readonly playerSprite: Phaser.Physics.Arcade.Sprite;
   readonly evacZone: Phaser.Geom.Rectangle;
+  readonly projectPoint: (x: number, y: number, elevation?: number) => Phaser.Math.Vector2;
 }
 
 export class RescueSystem {
   private readonly scene: Phaser.Scene;
   private readonly playerSprite: Phaser.Physics.Arcade.Sprite;
   private readonly evacZone: Phaser.Geom.Rectangle;
+  private readonly projectPoint: (x: number, y: number, elevation?: number) => Phaser.Math.Vector2;
 
   private readonly keyTab: Phaser.Input.Keyboard.Key;
   private readonly keyE: Phaser.Input.Keyboard.Key;
@@ -77,6 +79,7 @@ export class RescueSystem {
     this.scene = options.scene;
     this.playerSprite = options.playerSprite;
     this.evacZone = options.evacZone;
+    this.projectPoint = options.projectPoint;
 
     const keyboard = this.scene.input.keyboard!;
     this.keyTab = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.TAB);
@@ -187,7 +190,9 @@ export class RescueSystem {
     }
 
     this.probesRemaining -= 1;
-    const marker = this.scene.add.image(this.playerSprite.x, this.playerSprite.y, "probeMarker");
+    const markerPos = this.projectPoint(this.playerSprite.x, this.playerSprite.y, 8);
+    const marker = this.scene.add.image(markerPos.x, markerPos.y, "probeMarker");
+    marker.setDepth(this.playerSprite.y + 32);
     this.probeMarkers.add(marker);
 
     const distance = Phaser.Math.Distance.Between(this.playerSprite.x, this.playerSprite.y, this.victimPoint.x, this.victimPoint.y);

@@ -35,6 +35,15 @@ export class BootScene extends Phaser.Scene {
     g.strokeCircle(10, 10, 8);
     g.generateTexture("probeMarker", 20, 20);
 
+    g.clear();
+    g.fillStyle(0xe9f6ff, 1);
+    g.fillTriangle(16, 0, 32, 10, 16, 24);
+    g.fillStyle(0x2a4357, 1);
+    g.fillRect(9, 7, 8, 10);
+    g.fillStyle(0x99b9cf, 1);
+    g.fillRect(15, 4, 2, 16);
+    g.generateTexture("playerIso", 32, 24);
+
     g.destroy();
 
     this.scene.start("GameScene");

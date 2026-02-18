@@ -1,4 +1,5 @@
-﻿import Phaser from "phaser";
+import Phaser from "phaser";
+import { worldToIso } from "../core/iso";
 
 export interface ObstacleSpec {
   readonly x: number;
@@ -16,10 +17,18 @@ export class Obstacles {
     this.staticGroup = scene.physics.add.staticGroup();
 
     specs.forEach((spec) => {
-      const obstacle = scene.add.image(spec.x, spec.y, spec.texture).setTint(spec.tint);
-      obstacle.setDisplaySize(spec.width, spec.height);
-      scene.physics.add.existing(obstacle, true);
-      this.staticGroup.add(obstacle);
+      const collider = scene.add.rectangle(spec.x, spec.y, spec.width, spec.height, 0x000000, 0);
+      scene.physics.add.existing(collider, true);
+      this.staticGroup.add(collider);
+
+      const shadowP = worldToIso(spec.x, spec.y, 0);
+      const shadow = scene.add.ellipse(shadowP.x, shadowP.y + 6, spec.width * 0.95, Math.max(10, spec.height * 0.32), 0x000000, 0.22);
+      shadow.setDepth(spec.y + 8);
+
+      const p = worldToIso(spec.x, spec.y, spec.texture === "tree" ? 16 : 10);
+      const obstacle = scene.add.image(p.x, p.y, spec.texture).setTint(spec.tint);
+      obstacle.setDisplaySize(spec.width * 1.2, spec.height * 1.45);
+      obstacle.setDepth(spec.y + 24);
     });
 
     this.staticGroup.refresh();

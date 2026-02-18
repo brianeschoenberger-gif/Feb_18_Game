@@ -3,6 +3,11 @@ export const GAME_HEIGHT = 720;
 
 export const WORLD_WIDTH = 2400;
 export const WORLD_HEIGHT = 1800;
+export const ISO_X_SCALE = 0.92;
+export const ISO_Y_SCALE = 0.46;
+export const ISO_ELEVATION_SCALE = 0.72;
+export const ISO_ORIGIN_X = WORLD_WIDTH * ISO_X_SCALE * 0.6;
+export const ISO_ORIGIN_Y = 140;
 
 export const PLAYER_BASE_SPEED = 240;
 export const PLAYER_SPRINT_MULTIPLIER = 1.55;

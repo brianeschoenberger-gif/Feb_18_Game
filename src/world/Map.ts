@@ -7,11 +7,14 @@ import {
   WORLD_HEIGHT,
   WORLD_WIDTH
 } from "../core/constants";
+import { worldToIso } from "../core/iso";
 import { WORLD_BOUNDS } from "../core/gameConfig";
 import { TerrainField, TerrainType, TerrainZone } from "./Terrain";
 
 interface SnowParticle {
   readonly dot: Phaser.GameObjects.Arc;
+  wx: number;
+  wy: number;
   readonly speedX: number;
   readonly speedY: number;
 }
@@ -44,15 +47,19 @@ export class RescueMap {
 
     for (let i = 0; i < this.snowParticles.length; i += 1) {
       const p = this.snowParticles[i];
-      p.dot.x += p.speedX * dtSec;
-      p.dot.y += p.speedY * dtSec;
+      p.wx += p.speedX * dtSec;
+      p.wy += p.speedY * dtSec;
 
-      if (p.dot.y > WORLD_HEIGHT + 4) {
-        p.dot.y = -4;
+      if (p.wy > WORLD_HEIGHT + 4) {
+        p.wy = -4;
       }
-      if (p.dot.x > WORLD_WIDTH + 4) {
-        p.dot.x = -4;
+      if (p.wx > WORLD_WIDTH + 4) {
+        p.wx = -4;
       }
+
+      const projected = worldToIso(p.wx, p.wy);
+      p.dot.x = projected.x;
+      p.dot.y = projected.y;
     }
   }
 
@@ -62,91 +69,115 @@ export class RescueMap {
 
   private drawBase(scene: Phaser.Scene): void {
     const base = scene.add.graphics();
-    base.fillStyle(0xeef4fb, 1);
-    base.fillRect(WORLD_BOUNDS.x, WORLD_BOUNDS.y, WORLD_BOUNDS.width, WORLD_BOUNDS.height);
-    base.lineStyle(6, 0xc8d8e8, 1);
-    base.strokeRect(WORLD_BOUNDS.x, WORLD_BOUNDS.y, WORLD_BOUNDS.width, WORLD_BOUNDS.height);
+    this.fillIsoRect(base, WORLD_BOUNDS, 0xeef4fb, 1);
+    this.strokeIsoRect(base, WORLD_BOUNDS, 0xc8d8e8, 2.2, 0.88);
   }
 
   private drawTerrain(scene: Phaser.Scene, zones: TerrainZone[]): void {
     const g = scene.add.graphics();
 
     zones.forEach((zone) => {
-      g.fillStyle(zone.color, 0.9);
-      g.fillRect(zone.rect.x, zone.rect.y, zone.rect.width, zone.rect.height);
-      g.lineStyle(2, 0xffffff, 0.28);
-      g.strokeRect(zone.rect.x, zone.rect.y, zone.rect.width, zone.rect.height);
+      this.fillIsoRect(g, zone.rect, zone.color, 0.93);
+      this.strokeIsoRect(g, zone.rect, 0xffffff, 1.2, 0.34);
     });
 
     const textStyle: Phaser.Types.GameObjects.Text.TextStyle = {
       fontFamily: "Verdana",
-      fontSize: "18px",
+      fontSize: "17px",
       color: "#0f2336",
       fontStyle: "bold"
     };
 
     zones.forEach((zone) => {
-      const tx = zone.rect.x + 10;
-      const ty = zone.rect.y + 8;
-      scene.add.text(tx, ty, zone.label, textStyle).setAlpha(0.65);
+      const center = worldToIso(zone.rect.centerX, zone.rect.centerY - 22);
+      scene.add.text(center.x - 40, center.y - 12, zone.label, textStyle).setAlpha(0.7).setDepth(zone.rect.centerY + 12);
     });
   }
 
   private drawLandmark(scene: Phaser.Scene): void {
     const hut = scene.add.graphics();
-    hut.fillStyle(0x374957, 1);
-    hut.fillRoundedRect(2050, 1470, 190, 130, 10);
-    hut.fillStyle(0xffd37e, 0.95);
-    hut.fillRect(2105, 1510, 40, 32);
-    hut.lineStyle(3, 0xd4e5f7, 0.7);
-    hut.strokeRoundedRect(2050, 1470, 190, 130, 10);
+    const hutRect = new Phaser.Geom.Rectangle(2050, 1470, 190, 130);
+    this.fillIsoRect(hut, hutRect, 0x374957, 1);
+    this.strokeIsoRect(hut, hutRect, 0xd4e5f7, 2.2, 0.8);
 
+    const windowPos = worldToIso(2140, 1540, 20);
+    scene.add.circle(windowPos.x, windowPos.y, 8, 0xffd37e, 0.95).setDepth(1545);
+
+    const label = worldToIso(2145, 1438);
     scene.add
-      .text(2054, 1442, "Patrol Hut / EVAC", {
+      .text(label.x - 82, label.y - 22, "Patrol Hut / EVAC", {
         fontFamily: "Verdana",
         fontSize: "20px",
         color: "#13293f",
         fontStyle: "bold"
       })
-      .setAlpha(0.82);
+      .setAlpha(0.82)
+      .setDepth(1439);
   }
 
   private drawEvacZone(scene: Phaser.Scene): void {
     const evac = scene.add.graphics();
-    evac.fillStyle(0x6ec6ff, 0.18);
-    evac.fillRect(this.evacZone.x, this.evacZone.y, this.evacZone.width, this.evacZone.height);
-    evac.lineStyle(3, 0x8adaff, 0.75);
-    evac.strokeRect(this.evacZone.x, this.evacZone.y, this.evacZone.width, this.evacZone.height);
+    this.fillIsoRect(evac, this.evacZone, 0x6ec6ff, 0.2);
+    this.strokeIsoRect(evac, this.evacZone, 0x8adaff, 2.5, 0.8);
 
+    const label = worldToIso(this.evacZone.centerX, this.evacZone.y + 12);
     scene.add
-      .text(this.evacZone.centerX - 28, this.evacZone.y + 10, "EVAC", {
+      .text(label.x - 28, label.y - 12, "EVAC", {
         fontFamily: "Verdana",
         fontSize: "20px",
         color: "#b8ecff",
         fontStyle: "bold"
       })
-      .setAlpha(0.92);
+      .setAlpha(0.92)
+      .setDepth(this.evacZone.centerY + 24);
 
-    scene.add.circle(this.evacZone.centerX, this.evacZone.centerY, 90, 0x8ae9ff, 0.08);
+    const glow = worldToIso(this.evacZone.centerX, this.evacZone.centerY);
+    scene.add.ellipse(glow.x, glow.y, 190, 90, 0x8ae9ff, 0.09).setDepth(this.evacZone.centerY + 2);
   }
 
   private createBeaconPulse(scene: Phaser.Scene): void {
-    const cx = this.evacZone.centerX;
-    const cy = this.evacZone.centerY;
+    const c = worldToIso(this.evacZone.centerX, this.evacZone.centerY);
     for (let i = 0; i < 3; i += 1) {
-      const ring = scene.add.circle(cx, cy, 20, 0xa6e7ff, 0.17);
+      const ring = scene.add.circle(c.x, c.y, 20, 0xa6e7ff, 0.17);
       ring.setStrokeStyle(3, 0xd8f6ff, 0.95);
+      ring.setDepth(this.evacZone.centerY + 30);
       this.beaconPulse.push(ring);
     }
   }
 
   private createSnow(scene: Phaser.Scene): void {
     for (let i = 0; i < SNOW_PARTICLE_COUNT; i += 1) {
-      const dot = scene.add.circle(Math.random() * WORLD_WIDTH, Math.random() * WORLD_HEIGHT, 1.2 + Math.random() * 1.6, 0xffffff, 0.19 + Math.random() * 0.2);
+      const wx = Math.random() * WORLD_WIDTH;
+      const wy = Math.random() * WORLD_HEIGHT;
+      const p = worldToIso(wx, wy);
+      const dot = scene.add.circle(p.x, p.y, 1.2 + Math.random() * 1.6, 0xffffff, 0.19 + Math.random() * 0.2);
+      dot.setDepth(WORLD_HEIGHT + 400);
+
       const speedY = Phaser.Math.Linear(SNOW_PARTICLE_MIN_SPEED, SNOW_PARTICLE_MAX_SPEED, Math.random());
       const speedX = Phaser.Math.Linear(1.8, 10.5, Math.random());
-      this.snowParticles.push({ dot, speedX, speedY });
+      this.snowParticles.push({ dot, wx, wy, speedX, speedY });
     }
+  }
+
+  private fillIsoRect(graphics: Phaser.GameObjects.Graphics, rect: Phaser.Geom.Rectangle, color: number, alpha: number): void {
+    const points = this.getIsoRectPoints(rect);
+    graphics.fillStyle(color, alpha);
+    graphics.fillPoints(points, true);
+  }
+
+  private strokeIsoRect(graphics: Phaser.GameObjects.Graphics, rect: Phaser.Geom.Rectangle, color: number, lineWidth: number, alpha: number): void {
+    const points = this.getIsoRectPoints(rect);
+    graphics.lineStyle(lineWidth, color, alpha);
+    graphics.strokePoints(points, true, true);
+  }
+
+  private getIsoRectPoints(rect: Phaser.Geom.Rectangle): Phaser.Math.Vector2[] {
+    return [
+      worldToIso(rect.x, rect.y),
+      worldToIso(rect.right, rect.y),
+      worldToIso(rect.right, rect.bottom),
+      worldToIso(rect.x, rect.bottom)
+    ];
   }
 
   private buildZones(): TerrainZone[] {
