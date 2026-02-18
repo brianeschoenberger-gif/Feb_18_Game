@@ -63,3 +63,13 @@ export const EVAC_ZONE_RECT: RectangleLike = {
   width: 280,
   height: 210
 };
+
+export const DANGER_INITIAL_RADIUS = 120;
+export const DANGER_GROWTH_IDLE_PER_SEC = 18;
+export const DANGER_GROWTH_AFTER_STRIKE_PER_SEC = 38;
+export const DANGER_GROWTH_AFTER_SECURE_PER_SEC = 58;
+export const DANGER_CENTER: PointLike = { x: 1540, y: 80 };
+export const DANGER_BUFFER_HIT = 6;
+
+export const DANGER_WARN_FAR = 280;
+export const DANGER_WARN_NEAR = 120;

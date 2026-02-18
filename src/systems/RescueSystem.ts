@@ -10,9 +10,11 @@ import {
   SIGNAL_MAX_DISTANCE,
   VICTIM_SPAWN_POINTS
 } from "../core/constants";
+import { DangerPhase } from "./DangerZone";
 
 export type RescueMode = "SEARCH" | "PROBE" | "DIG" | "CARRY";
 export type RunState = "DISPATCH" | "ACTIVE" | "WIN" | "LOSE";
+export type LoseReason = "NONE" | "TIMER" | "DANGER";
 
 export interface RescueSnapshot {
   readonly runState: RunState;
@@ -30,6 +32,9 @@ export interface RescueSnapshot {
   readonly sprintEnabled: boolean;
   readonly speedMultiplier: number;
   readonly restartRequested: boolean;
+  readonly dangerPhase: DangerPhase;
+  readonly dangerTriggeredLose: boolean;
+  readonly loseReason: LoseReason;
 }
 
 interface RescueSystemOptions {
@@ -60,6 +65,9 @@ export class RescueSystem {
   private bannerRemainingSec = 0;
   private hasVictimSecured = false;
   private restartRequested = false;
+  private dangerPhase: DangerPhase = "IDLE";
+  private dangerTriggeredLose = false;
+  private loseReason: LoseReason = "NONE";
 
   private readonly victimPoint: Phaser.Math.Vector2;
   private readonly probeMarkers: Phaser.GameObjects.Group;
@@ -104,9 +112,7 @@ export class RescueSystem {
 
     this.timerSec = Math.max(0, this.timerSec - dtSec);
     if (this.timerSec <= 0) {
-      this.runState = "LOSE";
-      this.objective = "Victim lost";
-      this.pushBanner("TIME EXPIRED");
+      this.forceLose("TIMER");
       return;
     }
 
@@ -132,6 +138,18 @@ export class RescueSystem {
     }
   }
 
+  public forceLose(reason: "TIMER" | "DANGER"): void {
+    if (this.runState === "WIN" || this.runState === "LOSE") {
+      return;
+    }
+
+    this.runState = "LOSE";
+    this.loseReason = reason;
+    this.objective = reason === "DANGER" ? "Caught by secondary slide" : "Victim lost";
+    this.dangerTriggeredLose = reason === "DANGER";
+    this.pushBanner(reason === "DANGER" ? "SECONDARY SLIDE!" : "TIME EXPIRED");
+  }
+
   public getSnapshot(): RescueSnapshot {
     return {
       runState: this.runState,
@@ -148,7 +166,10 @@ export class RescueSystem {
       canInput: this.runState === "ACTIVE",
       sprintEnabled: this.runState === "ACTIVE" && (this.mode !== "CARRY" ? true : CARRY_SPRINT_ENABLED),
       speedMultiplier: this.runState === "ACTIVE" && this.mode === "CARRY" ? CARRY_SPEED_MULTIPLIER : 1,
-      restartRequested: this.restartRequested
+      restartRequested: this.restartRequested,
+      dangerPhase: this.dangerPhase,
+      dangerTriggeredLose: this.dangerTriggeredLose,
+      loseReason: this.loseReason
     };
   }
 
@@ -170,6 +191,7 @@ export class RescueSystem {
       this.mode = "DIG";
       this.digProgress = 0;
       this.objective = "Hold E to DIG";
+      this.dangerPhase = "AFTER_STRIKE";
       this.pushBanner("STRIKE!");
     }
   }
@@ -184,6 +206,7 @@ export class RescueSystem {
       this.hasVictimSecured = true;
       this.mode = "CARRY";
       this.objective = "Get to EVAC";
+      this.dangerPhase = "AFTER_SECURE";
       this.pushBanner("VICTIM SECURED");
     }
   }

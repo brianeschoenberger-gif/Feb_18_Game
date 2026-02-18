@@ -1,6 +1,8 @@
 import Phaser from "phaser";
+import { DANGER_WARN_FAR, DANGER_WARN_NEAR } from "../core/constants";
+import { LoseReason, RescueMode, RunState } from "../systems/RescueSystem";
+import { DangerPhase } from "../systems/DangerZone";
 import { TerrainType } from "../world/Terrain";
-import { RescueMode, RunState } from "../systems/RescueSystem";
 
 export interface HudViewModel {
   readonly staminaRatio: number;
@@ -16,6 +18,10 @@ export interface HudViewModel {
   readonly dispatchRemainingSec: number;
   readonly runState: RunState;
   readonly bannerText: string;
+  readonly dangerPhase: DangerPhase;
+  readonly dangerDistance: number;
+  readonly dangerActive: boolean;
+  readonly loseReason: LoseReason;
 }
 
 export class Hud {
@@ -30,6 +36,7 @@ export class Hud {
   private readonly signalText: Phaser.GameObjects.Text;
   private readonly probeText: Phaser.GameObjects.Text;
   private readonly timerText: Phaser.GameObjects.Text;
+  private readonly dangerText: Phaser.GameObjects.Text;
   private readonly directionArrow: Phaser.GameObjects.Triangle;
 
   private readonly digBg: Phaser.GameObjects.Rectangle;
@@ -112,18 +119,27 @@ export class Hud {
       })
       .setScrollFactor(0);
 
+    this.dangerText = scene.add
+      .text(30, 198, "DANGER: LOW", {
+        fontFamily: "Verdana",
+        fontSize: "14px",
+        color: "#ffd4a4",
+        fontStyle: "bold"
+      })
+      .setScrollFactor(0);
+
     this.hintText = scene.add
-      .text(30, 202, "Move: WASD/Arrows  Sprint: Shift  Mode: Tab  Action: E  Restart: R", {
+      .text(30, 222, "Move: WASD/Arrows  Sprint: Shift  Mode: Tab  Action: E  Restart: R", {
         fontFamily: "Verdana",
         fontSize: "13px",
         color: "#c9d8e6"
       })
       .setScrollFactor(0);
 
-    this.digBg = scene.add.rectangle(30, 234, this.maxDigWidth, 16, 0x212d3c, 0.9).setOrigin(0, 0).setScrollFactor(0);
-    this.digFill = scene.add.rectangle(30, 234, 0, 16, 0x77d5ff, 1).setOrigin(0, 0).setScrollFactor(0);
+    this.digBg = scene.add.rectangle(30, 254, this.maxDigWidth, 16, 0x212d3c, 0.9).setOrigin(0, 0).setScrollFactor(0);
+    this.digFill = scene.add.rectangle(30, 254, 0, 16, 0x77d5ff, 1).setOrigin(0, 0).setScrollFactor(0);
     this.digText = scene.add
-      .text(30, 214, "DIG PROGRESS", {
+      .text(30, 234, "DIG PROGRESS", {
         fontFamily: "Verdana",
         fontSize: "13px",
         color: "#c5ecff",
@@ -133,7 +149,7 @@ export class Hud {
 
     this.dispatchOverlay = scene.add.rectangle(0, 0, scene.scale.width, scene.scale.height, 0x050a13, 0.8).setOrigin(0, 0).setScrollFactor(0).setDepth(200);
     this.dispatchText = scene.add
-      .text(scene.scale.width / 2, scene.scale.height / 2, "CODE WHITE \u2014 last seen near West Ridge", {
+      .text(scene.scale.width / 2, scene.scale.height / 2, "CODE WHITE - last seen near West Ridge", {
         fontFamily: "Verdana",
         fontSize: "34px",
         color: "#f4f8ff",
@@ -191,6 +207,8 @@ export class Hud {
     this.probeText.setText(`PROBES: ${view.probesRemaining}`);
     this.timerText.setText(`TIME: ${this.formatTime(view.timerSec)}`);
 
+    this.updateDangerReadout(view.dangerPhase, view.dangerDistance, view.dangerActive);
+
     const digVisible = view.mode === "DIG" && view.runState === "ACTIVE";
     this.digBg.setVisible(digVisible);
     this.digFill.setVisible(digVisible);
@@ -199,20 +217,44 @@ export class Hud {
 
     this.dispatchOverlay.setVisible(view.runState === "DISPATCH");
     this.dispatchText.setVisible(view.runState === "DISPATCH");
-    if (view.runState === "DISPATCH") {
-      this.dispatchText.setText("CODE WHITE \u2014 last seen near West Ridge");
-    }
 
     if (view.runState === "WIN") {
       this.showResult("WIN\nPress R to restart", "#a8ffbf");
     } else if (view.runState === "LOSE") {
-      this.showResult("LOSE\nPress R to restart", "#ffb4b4");
+      if (view.loseReason === "DANGER") {
+        this.showResult("CAUGHT BY SECONDARY SLIDE\nPress R to restart", "#ffb4b4");
+      } else {
+        this.showResult("LOSE\nPress R to restart", "#ffb4b4");
+      }
     } else {
       this.hideResult();
     }
 
     this.bannerText.setText(view.bannerText);
     this.bannerText.setVisible(view.bannerText.length > 0);
+  }
+
+  private updateDangerReadout(phase: DangerPhase, distance: number, active: boolean): void {
+    if (!active) {
+      this.dangerText.setText("DANGER: OFF");
+      this.dangerText.setColor("#8ea0b2");
+      return;
+    }
+
+    if (distance <= DANGER_WARN_NEAR) {
+      this.dangerText.setText(`DANGER: CRITICAL (${Math.max(0, Math.round(distance))}m)`);
+      this.dangerText.setColor("#ff6f6f");
+      return;
+    }
+
+    if (distance <= DANGER_WARN_FAR || phase !== "IDLE") {
+      this.dangerText.setText(`DANGER: RISING (${Math.round(distance)}m)`);
+      this.dangerText.setColor("#ffb870");
+      return;
+    }
+
+    this.dangerText.setText(`DANGER: LOW (${Math.round(distance)}m)`);
+    this.dangerText.setColor("#ffd4a4");
   }
 
   private showResult(text: string, color: string): void {

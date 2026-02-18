@@ -3,6 +3,7 @@ import { WORLD_BOUNDS } from "../core/gameConfig";
 import { Beep } from "../audio/Beep";
 import { Player } from "../player/Player";
 import { PlayerController } from "../player/PlayerController";
+import { DangerZone } from "../systems/DangerZone";
 import { RescueSystem, RescueSnapshot } from "../systems/RescueSystem";
 import { Hud } from "../ui/Hud";
 import { RescueMap } from "../world/Map";
@@ -14,6 +15,7 @@ export class GameScene extends Phaser.Scene {
   private hud!: Hud;
   private map!: RescueMap;
   private rescueSystem!: RescueSystem;
+  private dangerZone!: DangerZone;
   private beep!: Beep;
   private previousBannerText = "";
 
@@ -43,6 +45,7 @@ export class GameScene extends Phaser.Scene {
       evacZone: this.map.getEvacZone()
     });
 
+    this.dangerZone = new DangerZone(this);
     this.beep = new Beep(this);
 
     this.cameras.main.startFollow(this.player.sprite, true, 0.12, 0.12);
@@ -57,9 +60,9 @@ export class GameScene extends Phaser.Scene {
     const dtSeconds = delta / 1000;
 
     this.map.update(time);
-    this.rescueSystem.update(dtSeconds);
 
-    const rescueView = this.rescueSystem.getSnapshot();
+    this.rescueSystem.update(dtSeconds);
+    let rescueView = this.rescueSystem.getSnapshot();
     if (rescueView.restartRequested) {
       this.scene.restart();
       return;
@@ -69,6 +72,16 @@ export class GameScene extends Phaser.Scene {
     this.controller.setSprintEnabled(rescueView.sprintEnabled);
     this.controller.setExternalSpeedMultiplier(rescueView.speedMultiplier);
     this.controller.update(dtSeconds);
+
+    this.dangerZone.setPhase(rescueView.dangerPhase);
+    this.dangerZone.update(dtSeconds);
+
+    if (rescueView.runState === "ACTIVE" && this.dangerZone.isPlayerInDanger(this.player.sprite.x, this.player.sprite.y)) {
+      this.rescueSystem.forceLose("DANGER");
+      rescueView = this.rescueSystem.getSnapshot();
+    }
+
+    const dangerDistance = this.dangerZone.distanceToEdge(this.player.sprite.x, this.player.sprite.y);
 
     this.hud.updateView({
       staminaRatio: this.controller.getStaminaRatio(),
@@ -83,7 +96,11 @@ export class GameScene extends Phaser.Scene {
       timerSec: rescueView.timerSec,
       dispatchRemainingSec: rescueView.dispatchRemainingSec,
       runState: rescueView.runState,
-      bannerText: rescueView.bannerText
+      bannerText: rescueView.bannerText,
+      dangerPhase: rescueView.dangerPhase,
+      dangerDistance,
+      dangerActive: true,
+      loseReason: rescueView.loseReason
     });
 
     this.beep.update(dtSeconds, rescueView.signal, rescueView.runState === "ACTIVE" && rescueView.mode === "SEARCH");
@@ -113,6 +130,10 @@ export class GameScene extends Phaser.Scene {
 
     if (this.rescueSystem) {
       this.rescueSystem.destroy();
+    }
+
+    if (this.dangerZone) {
+      this.dangerZone.destroy();
     }
   }
 }
