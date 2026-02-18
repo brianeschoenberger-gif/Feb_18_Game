@@ -35,17 +35,51 @@ export class BootScene extends Phaser.Scene {
     g.strokeCircle(10, 10, 8);
     g.generateTexture("probeMarker", 20, 20);
 
-    g.clear();
-    g.fillStyle(0xe9f6ff, 1);
-    g.fillTriangle(16, 0, 32, 10, 16, 24);
-    g.fillStyle(0x2a4357, 1);
-    g.fillRect(9, 7, 8, 10);
-    g.fillStyle(0x99b9cf, 1);
-    g.fillRect(15, 4, 2, 16);
-    g.generateTexture("playerIso", 32, 24);
+    this.generatePatrolFrame(g, "playerIso0", 0);
+    this.generatePatrolFrame(g, "playerIso1", 1);
+    this.generatePatrolFrame(g, "playerIso2", -1);
 
     g.destroy();
 
     this.scene.start("GameScene");
+  }
+
+  private generatePatrolFrame(g: Phaser.GameObjects.Graphics, key: string, stance: number): void {
+    g.clear();
+
+    // Skis
+    g.fillStyle(0x9cc0d6, 1);
+    g.fillRoundedRect(2, 19 + Math.max(0, stance), 12, 2, 1);
+    g.fillRoundedRect(18, 19 + Math.max(0, -stance), 12, 2, 1);
+
+    // Legs
+    g.fillStyle(0x243544, 1);
+    g.fillRect(11 + stance, 13, 3, 6);
+    g.fillRect(17 - stance, 13, 3, 6);
+
+    // Jacket
+    g.fillStyle(0xd94141, 1);
+    g.fillRoundedRect(10, 7, 12, 8, 2);
+
+    // Cross stripe (ski patrol vibe)
+    g.fillStyle(0xf2f5f9, 1);
+    g.fillRect(11, 10, 10, 2);
+
+    // Head + helmet
+    g.fillStyle(0xf0d1b1, 1);
+    g.fillCircle(16, 5, 3);
+    g.fillStyle(0x1d2730, 1);
+    g.fillRect(13, 1, 6, 2);
+
+    // Poles
+    g.lineStyle(1, 0x6f8190, 1);
+    g.beginPath();
+    g.moveTo(8, 11);
+    g.lineTo(6 - stance, 20);
+    g.moveTo(24, 11);
+    g.lineTo(26 + stance, 20);
+    g.strokePath();
+
+    g.generateTexture(key, 32, 24);
   }
 }

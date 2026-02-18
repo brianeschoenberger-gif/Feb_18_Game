@@ -21,8 +21,8 @@ export class ThreeApp {
 
   public constructor(private readonly parent: HTMLElement, initialSnapshot: SimSnapshot) {
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0x06111d);
-    this.scene.fog = new THREE.Fog(0x081724, 85, 280);
+    this.scene.background = new THREE.Color(0x07172b);
+    this.scene.fog = new THREE.Fog(0x09172a, 70, 255);
 
     const aspect = Math.max(1, this.parent.clientWidth) / Math.max(1, this.parent.clientHeight);
     this.cameraRig = new ThreeCamera(aspect);
@@ -40,9 +40,9 @@ export class ThreeApp {
     this.ensureParentLayering();
     this.parent.prepend(this.renderer.domElement);
 
-    const amb = new THREE.AmbientLight(0xa8c6dd, 0.65);
-    const dir = new THREE.DirectionalLight(0xd7ebff, 1.1);
-    dir.position.set(40, 90, 30);
+    const amb = new THREE.AmbientLight(0x9bb8d4, 0.62);
+    const dir = new THREE.DirectionalLight(0xd8ecff, 1.2);
+    dir.position.set(-20, 92, -60);
     this.scene.add(amb);
     this.scene.add(dir);
 
@@ -67,7 +67,15 @@ export class ThreeApp {
     this.dangerView.update(snapshot, this.worldScale);
     this.worldView.update(snapshot);
 
-    this.cameraRig.updateFollow(snapshot.player.x * this.worldScale, snapshot.player.y * this.worldScale, dtSec);
+    this.cameraRig.updateFollow(
+      snapshot.player.x * this.worldScale,
+      snapshot.player.elevation * this.worldScale * 0.16,
+      snapshot.player.y * this.worldScale,
+      snapshot.player.headingRad,
+      snapshot.player.vx * this.worldScale,
+      snapshot.player.vy * this.worldScale,
+      dtSec
+    );
     this.renderer.render(this.scene, this.cameraRig.camera);
   }
 

@@ -24,6 +24,9 @@ export interface SimSnapshot {
   readonly player: {
     readonly x: number;
     readonly y: number;
+    readonly elevation: number;
+    readonly vx: number;
+    readonly vy: number;
     readonly headingRad: number;
     readonly mode: RescueMode;
     readonly carrying: boolean;

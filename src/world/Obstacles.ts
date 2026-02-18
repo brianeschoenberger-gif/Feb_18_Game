@@ -10,6 +10,13 @@ export interface ObstacleSpec {
   readonly texture: "tree" | "rock";
 }
 
+export interface CollisionObstacle {
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+}
+
 export class Obstacles {
   public readonly staticGroup: Phaser.Physics.Arcade.StaticGroup;
 
@@ -17,17 +24,19 @@ export class Obstacles {
     this.staticGroup = scene.physics.add.staticGroup();
 
     specs.forEach((spec) => {
-      const collider = scene.add.rectangle(spec.x, spec.y, spec.width, spec.height, 0x000000, 0);
+      const footprint = Obstacles.getCollisionFootprint(spec);
+      const collider = scene.add.rectangle(spec.x, spec.y, footprint.width, footprint.height, 0x000000, 0);
       scene.physics.add.existing(collider, true);
       this.staticGroup.add(collider);
 
       const shadowP = worldToIso(spec.x, spec.y, 0);
-      const shadow = scene.add.ellipse(shadowP.x, shadowP.y + 6, spec.width * 0.95, Math.max(10, spec.height * 0.32), 0x000000, 0.22);
+      const shadow = scene.add.ellipse(shadowP.x, shadowP.y + 5, spec.width, Math.max(10, spec.height * 0.38), 0x000000, 0.24);
       shadow.setDepth(spec.y + 8);
 
-      const p = worldToIso(spec.x, spec.y, spec.texture === "tree" ? 16 : 10);
+      const p = worldToIso(spec.x, spec.y, 0);
       const obstacle = scene.add.image(p.x, p.y, spec.texture).setTint(spec.tint);
-      obstacle.setDisplaySize(spec.width * 1.2, spec.height * 1.45);
+      obstacle.setOrigin(0.5, 1);
+      obstacle.setDisplaySize(spec.width * 1.05, spec.height * 1.2);
       obstacle.setDepth(spec.y + 24);
     });
 
@@ -50,5 +59,31 @@ export class Obstacles {
       { x: 1710, y: 1020, width: 64, height: 48, tint: 0xe6edf6, texture: "rock" },
       { x: 1785, y: 1080, width: 66, height: 50, tint: 0xdce5ef, texture: "rock" }
     ];
+  }
+
+  public static toCollisionObstacles(specs: readonly ObstacleSpec[]): CollisionObstacle[] {
+    return specs.map((spec) => {
+      const footprint = this.getCollisionFootprint(spec);
+      return {
+        x: spec.x,
+        y: spec.y,
+        width: footprint.width,
+        height: footprint.height
+      };
+    });
+  }
+
+  private static getCollisionFootprint(spec: ObstacleSpec): { width: number; height: number } {
+    if (spec.texture === "tree") {
+      return {
+        width: spec.width * 0.74,
+        height: spec.height * 0.68
+      };
+    }
+
+    return {
+      width: spec.width * 0.92,
+      height: spec.height * 0.86
+    };
   }
 }

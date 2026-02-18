@@ -4,9 +4,11 @@ import { RescueSnapshot } from "../systems/RescueSystem";
 import { TerrainZone } from "../world/Terrain";
 import { ObstacleSpec } from "../world/Obstacles";
 import { SimSnapshot } from "./SimTypes";
+import { PlayerSimState } from "./PlayerSimState";
 
 interface SimBridgeOptions {
   readonly playerSprite: Phaser.Physics.Arcade.Sprite;
+  readonly getPlayerState?: () => Readonly<PlayerSimState>;
   readonly getRescueSnapshot: () => RescueSnapshot;
   readonly getDangerSnapshot: () => DangerSnapshot;
   readonly terrainZones: readonly TerrainZone[];
@@ -16,6 +18,7 @@ interface SimBridgeOptions {
 
 export class SimBridge {
   private readonly playerSprite: Phaser.Physics.Arcade.Sprite;
+  private readonly getPlayerState?: () => Readonly<PlayerSimState>;
   private readonly getRescueSnapshot: () => RescueSnapshot;
   private readonly getDangerSnapshot: () => DangerSnapshot;
   private readonly terrainZones: readonly TerrainZone[];
@@ -24,6 +27,7 @@ export class SimBridge {
 
   public constructor(options: SimBridgeOptions) {
     this.playerSprite = options.playerSprite;
+    this.getPlayerState = options.getPlayerState;
     this.getRescueSnapshot = options.getRescueSnapshot;
     this.getDangerSnapshot = options.getDangerSnapshot;
     this.terrainZones = options.terrainZones;
@@ -34,13 +38,24 @@ export class SimBridge {
   public capture(timeSec: number): SimSnapshot {
     const rescue = this.getRescueSnapshot();
     const danger = this.getDangerSnapshot();
+    const playerState = this.getPlayerState?.();
+
+    const playerX = playerState?.x ?? this.playerSprite.x;
+    const playerY = playerState?.z ?? this.playerSprite.y;
+    const elevation = playerState?.y ?? 0;
+    const vx = playerState?.vx ?? 0;
+    const vy = playerState?.vz ?? 0;
+    const heading = playerState?.headingRad ?? rescue.directionAngleRad;
 
     return {
       timeSec,
       player: {
-        x: this.playerSprite.x,
-        y: this.playerSprite.y,
-        headingRad: rescue.directionAngleRad,
+        x: playerX,
+        y: playerY,
+        elevation,
+        vx,
+        vy,
+        headingRad: heading,
         mode: rescue.mode,
         carrying: rescue.hasVictimSecured
       },

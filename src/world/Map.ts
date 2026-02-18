@@ -1,6 +1,8 @@
 import Phaser from "phaser";
 import {
   EVAC_ZONE_RECT,
+  MOUNTAIN_HAZE_BANDS,
+  MOUNTAIN_CONTOUR_SPACING,
   SNOW_PARTICLE_COUNT,
   SNOW_PARTICLE_MAX_SPEED,
   SNOW_PARTICLE_MIN_SPEED,
@@ -8,28 +10,38 @@ import {
   WORLD_WIDTH
 } from "../core/constants";
 import { worldToIso } from "../core/iso";
+import { TerrainQuery } from "../sim/TerrainQuery";
 import { WORLD_BOUNDS } from "../core/gameConfig";
+import { MountainProfile } from "./MountainProfile";
 import { TerrainField, TerrainType, TerrainZone } from "./Terrain";
 
 interface SnowParticle {
   readonly dot: Phaser.GameObjects.Arc;
   wx: number;
   wy: number;
-  readonly speedX: number;
-  readonly speedY: number;
+  readonly speed: number;
+  readonly driftScale: number;
 }
 
 export class RescueMap {
   public readonly terrain: TerrainField;
+  private readonly mountain: MountainProfile;
   private readonly evacZone = new Phaser.Geom.Rectangle(EVAC_ZONE_RECT.x, EVAC_ZONE_RECT.y, EVAC_ZONE_RECT.width, EVAC_ZONE_RECT.height);
   private readonly beaconPulse: Phaser.GameObjects.Arc[] = [];
   private readonly snowParticles: SnowParticle[] = [];
+  private readonly snowWindDir: { x: number; y: number };
 
   public constructor(scene: Phaser.Scene) {
     const zones = this.buildZones();
     this.terrain = new TerrainField(zones);
 
+    const terrainQuery = new TerrainQuery((x, y) => this.terrain.getTerrainAt(x, y));
+    this.mountain = new MountainProfile((x, y) => terrainQuery.getHeightAt(x, y));
+    this.snowWindDir = this.mountain.getSlopeDirection(WORLD_WIDTH * 0.5, WORLD_HEIGHT * 0.5);
+
     this.drawBase(scene);
+    this.drawBackdropHaze(scene);
+    this.drawContours(scene);
     this.drawTerrain(scene, zones);
     this.drawLandmark(scene);
     this.drawEvacZone(scene);
@@ -47,14 +59,21 @@ export class RescueMap {
 
     for (let i = 0; i < this.snowParticles.length; i += 1) {
       const p = this.snowParticles[i];
-      p.wx += p.speedX * dtSec;
-      p.wy += p.speedY * dtSec;
+      const windVariance = Math.sin((timeMs * 0.001 + i * 0.17)) * 0.28;
+      const vx = (this.snowWindDir.x + windVariance * 0.22) * p.speed * p.driftScale;
+      const vy = (this.snowWindDir.y + 0.36) * p.speed;
 
-      if (p.wy > WORLD_HEIGHT + 4) {
-        p.wy = -4;
+      p.wx += vx * dtSec;
+      p.wy += vy * dtSec;
+
+      if (p.wy > WORLD_HEIGHT + 6) {
+        p.wy = -6;
       }
-      if (p.wx > WORLD_WIDTH + 4) {
-        p.wx = -4;
+      if (p.wx > WORLD_WIDTH + 6) {
+        p.wx = -6;
+      }
+      if (p.wx < -6) {
+        p.wx = WORLD_WIDTH + 6;
       }
 
       const projected = worldToIso(p.wx, p.wy);
@@ -69,77 +88,120 @@ export class RescueMap {
 
   private drawBase(scene: Phaser.Scene): void {
     const base = scene.add.graphics();
-    this.fillIsoRect(base, WORLD_BOUNDS, 0xeef4fb, 1);
-    this.strokeIsoRect(base, WORLD_BOUNDS, 0xc8d8e8, 2.2, 0.88);
+    this.fillIsoRect(base, WORLD_BOUNDS, 0xd9e5f1, 1);
+    this.strokeIsoRect(base, WORLD_BOUNDS, 0xc2d2e2, 2, 0.9);
+
+    const ridgeGlow = scene.add.graphics();
+    const ridgeBand = new Phaser.Geom.Rectangle(0, 0, WORLD_WIDTH, WORLD_HEIGHT * 0.28);
+    this.fillIsoRect(ridgeGlow, ridgeBand, 0xffffff, 0.08);
+  }
+
+  private drawBackdropHaze(scene: Phaser.Scene): void {
+    const haze = scene.add.graphics();
+    for (let i = 0; i < MOUNTAIN_HAZE_BANDS; i += 1) {
+      const t = i / (MOUNTAIN_HAZE_BANDS - 1);
+      const startY = Phaser.Math.Linear(WORLD_HEIGHT * 0.38, WORLD_HEIGHT * 0.9, t);
+      const band = new Phaser.Geom.Rectangle(0, startY, WORLD_WIDTH, WORLD_HEIGHT * 0.15);
+      this.fillIsoRect(haze, band, 0x061223, Phaser.Math.Linear(0.02, 0.15, t));
+    }
+  }
+
+  private drawContours(scene: Phaser.Scene): void {
+    const contour = scene.add.graphics();
+    contour.lineStyle(1, 0x9db7cf, 0.2);
+
+    const phaseOffset = this.mountain.getContourPhase(WORLD_WIDTH * 0.5, WORLD_HEIGHT * 0.5) * MOUNTAIN_CONTOUR_SPACING;
+    for (let y = -MOUNTAIN_CONTOUR_SPACING + phaseOffset; y <= WORLD_HEIGHT + MOUNTAIN_CONTOUR_SPACING; y += MOUNTAIN_CONTOUR_SPACING) {
+      const p1 = worldToIso(0, y);
+      const p2 = worldToIso(WORLD_WIDTH, y);
+      contour.beginPath();
+      contour.moveTo(p1.x, p1.y);
+      contour.lineTo(p2.x, p2.y);
+      contour.strokePath();
+    }
   }
 
   private drawTerrain(scene: Phaser.Scene, zones: TerrainZone[]): void {
     const g = scene.add.graphics();
 
     zones.forEach((zone) => {
-      this.fillIsoRect(g, zone.rect, zone.color, 0.93);
-      this.strokeIsoRect(g, zone.rect, 0xffffff, 1.2, 0.34);
+      const centerX = zone.rect.centerX;
+      const centerY = zone.rect.centerY;
+      const elevation = this.mountain.getElevation(centerX, centerY);
+      const aspect = this.mountain.getAspectLight(centerX, centerY);
+      const normalized = Phaser.Math.Clamp((elevation - 20) / 80, -0.6, 0.8);
+      const color = this.shiftTerrainColor(zone.color, normalized, aspect);
+
+      this.fillIsoRect(g, zone.rect, color, 0.94);
+      this.strokeIsoRect(g, zone.rect, 0xe8f3ff, 1.35, 0.34);
+
+      if (zone.type === TerrainType.GULLY) {
+        this.strokeIsoRect(g, zone.rect, 0x7c9fbb, 2.4, 0.36);
+      }
+      if (zone.type === TerrainType.RIDGE_ROCK) {
+        this.strokeIsoRect(g, zone.rect, 0xf4fbff, 2.5, 0.44);
+      }
     });
 
     const textStyle: Phaser.Types.GameObjects.Text.TextStyle = {
       fontFamily: "Verdana",
       fontSize: "17px",
-      color: "#0f2336",
+      color: "#10273d",
       fontStyle: "bold"
     };
 
     zones.forEach((zone) => {
-      const center = worldToIso(zone.rect.centerX, zone.rect.centerY - 22);
-      scene.add.text(center.x - 40, center.y - 12, zone.label, textStyle).setAlpha(0.7).setDepth(zone.rect.centerY + 12);
+      const center = worldToIso(zone.rect.centerX, zone.rect.centerY - 18);
+      scene.add.text(center.x - 44, center.y - 11, zone.label, textStyle).setAlpha(0.66).setDepth(zone.rect.centerY + 12);
     });
   }
 
   private drawLandmark(scene: Phaser.Scene): void {
     const hut = scene.add.graphics();
     const hutRect = new Phaser.Geom.Rectangle(2050, 1470, 190, 130);
-    this.fillIsoRect(hut, hutRect, 0x374957, 1);
-    this.strokeIsoRect(hut, hutRect, 0xd4e5f7, 2.2, 0.8);
+    this.fillIsoRect(hut, hutRect, 0x2d4050, 1);
+    this.strokeIsoRect(hut, hutRect, 0xd4e5f7, 2.4, 0.86);
 
     const windowPos = worldToIso(2140, 1540, 20);
-    scene.add.circle(windowPos.x, windowPos.y, 8, 0xffd37e, 0.95).setDepth(1545);
+    scene.add.circle(windowPos.x, windowPos.y, 8, 0xffd37e, 0.96).setDepth(1545);
 
     const label = worldToIso(2145, 1438);
     scene.add
       .text(label.x - 82, label.y - 22, "Patrol Hut / EVAC", {
         fontFamily: "Verdana",
         fontSize: "20px",
-        color: "#13293f",
+        color: "#152f49",
         fontStyle: "bold"
       })
-      .setAlpha(0.82)
+      .setAlpha(0.85)
       .setDepth(1439);
   }
 
   private drawEvacZone(scene: Phaser.Scene): void {
     const evac = scene.add.graphics();
-    this.fillIsoRect(evac, this.evacZone, 0x6ec6ff, 0.2);
-    this.strokeIsoRect(evac, this.evacZone, 0x8adaff, 2.5, 0.8);
+    this.fillIsoRect(evac, this.evacZone, 0x66d4ff, 0.25);
+    this.strokeIsoRect(evac, this.evacZone, 0x9be7ff, 2.8, 0.92);
 
     const label = worldToIso(this.evacZone.centerX, this.evacZone.y + 12);
     scene.add
       .text(label.x - 28, label.y - 12, "EVAC", {
         fontFamily: "Verdana",
         fontSize: "20px",
-        color: "#b8ecff",
+        color: "#cbf6ff",
         fontStyle: "bold"
       })
-      .setAlpha(0.92)
+      .setAlpha(0.96)
       .setDepth(this.evacZone.centerY + 24);
 
     const glow = worldToIso(this.evacZone.centerX, this.evacZone.centerY);
-    scene.add.ellipse(glow.x, glow.y, 190, 90, 0x8ae9ff, 0.09).setDepth(this.evacZone.centerY + 2);
+    scene.add.ellipse(glow.x, glow.y, 220, 110, 0x86ecff, 0.11).setDepth(this.evacZone.centerY + 2);
   }
 
   private createBeaconPulse(scene: Phaser.Scene): void {
     const c = worldToIso(this.evacZone.centerX, this.evacZone.centerY);
     for (let i = 0; i < 3; i += 1) {
-      const ring = scene.add.circle(c.x, c.y, 20, 0xa6e7ff, 0.17);
-      ring.setStrokeStyle(3, 0xd8f6ff, 0.95);
+      const ring = scene.add.circle(c.x, c.y, 20, 0xa6e7ff, 0.18);
+      ring.setStrokeStyle(3, 0xd8f6ff, 0.96);
       ring.setDepth(this.evacZone.centerY + 30);
       this.beaconPulse.push(ring);
     }
@@ -150,12 +212,12 @@ export class RescueMap {
       const wx = Math.random() * WORLD_WIDTH;
       const wy = Math.random() * WORLD_HEIGHT;
       const p = worldToIso(wx, wy);
-      const dot = scene.add.circle(p.x, p.y, 1.2 + Math.random() * 1.6, 0xffffff, 0.19 + Math.random() * 0.2);
-      dot.setDepth(WORLD_HEIGHT + 400);
+      const dot = scene.add.circle(p.x, p.y, 1.1 + Math.random() * 1.6, 0xffffff, 0.17 + Math.random() * 0.18);
+      dot.setDepth(WORLD_HEIGHT + 420);
 
-      const speedY = Phaser.Math.Linear(SNOW_PARTICLE_MIN_SPEED, SNOW_PARTICLE_MAX_SPEED, Math.random());
-      const speedX = Phaser.Math.Linear(1.8, 10.5, Math.random());
-      this.snowParticles.push({ dot, wx, wy, speedX, speedY });
+      const speed = Phaser.Math.Linear(SNOW_PARTICLE_MIN_SPEED, SNOW_PARTICLE_MAX_SPEED, Math.random());
+      const driftScale = Phaser.Math.Linear(0.82, 1.2, Math.random());
+      this.snowParticles.push({ dot, wx, wy, speed, driftScale });
     }
   }
 
@@ -178,6 +240,16 @@ export class RescueMap {
       worldToIso(rect.right, rect.bottom),
       worldToIso(rect.x, rect.bottom)
     ];
+  }
+
+  private shiftTerrainColor(baseColor: number, elevationN: number, aspectLight: number): number {
+    const c = Phaser.Display.Color.IntegerToColor(baseColor);
+    const coolBoost = elevationN * 30;
+    const shade = aspectLight * 90;
+    const r = Phaser.Math.Clamp(Math.round(c.red + coolBoost * 0.5 + shade), 0, 255);
+    const g = Phaser.Math.Clamp(Math.round(c.green + coolBoost * 0.75 + shade), 0, 255);
+    const b = Phaser.Math.Clamp(Math.round(c.blue + coolBoost * 1.2 + shade * 0.35), 0, 255);
+    return Phaser.Display.Color.GetColor(r, g, b);
   }
 
   private buildZones(): TerrainZone[] {

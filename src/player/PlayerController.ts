@@ -1,30 +1,12 @@
-﻿import Phaser from "phaser";
-import {
-  GULLY_TURN_STICKINESS,
-  PLAYER_ACCEL,
-  PLAYER_BASE_SPEED,
-  PLAYER_DECEL,
-  PLAYER_SPRINT_MULTIPLIER,
-  STAMINA_DRAIN_PER_SEC,
-  STAMINA_MAX,
-  STAMINA_MIN_TO_SPRINT,
-  STAMINA_REGEN_PER_SEC,
-  TERRAIN_SPEED_MODIFIER
-} from "../core/constants";
-import { Player } from "./Player";
-import { TerrainType } from "../world/Terrain";
+import Phaser from "phaser";
+import { InputFrame } from "../sim/InputFrame";
 
 interface PlayerControllerOptions {
   readonly scene: Phaser.Scene;
-  readonly player: Player;
-  readonly terrainAt: (x: number, y: number) => TerrainType;
 }
 
 export class PlayerController {
   private readonly scene: Phaser.Scene;
-  private readonly player: Player;
-  private readonly terrainAt: (x: number, y: number) => TerrainType;
-
   private readonly cursors: Phaser.Types.Input.Keyboard.CursorKeys;
   private readonly keys: {
     w: Phaser.Input.Keyboard.Key;
@@ -34,18 +16,11 @@ export class PlayerController {
     shift: Phaser.Input.Keyboard.Key;
   };
 
-  private stamina = STAMINA_MAX;
-  private sprinting = false;
-  private terrain = TerrainType.OPEN_SNOW;
-  private lastMoveDir = new Phaser.Math.Vector2(0, -1);
-  private externalSpeedMultiplier = 1;
-  private sprintEnabled = true;
   private inputEnabled = true;
+  private sprintEnabled = true;
 
   public constructor(options: PlayerControllerOptions) {
     this.scene = options.scene;
-    this.player = options.player;
-    this.terrainAt = options.terrainAt;
 
     const keyboard = this.scene.input.keyboard!;
     this.cursors = keyboard.createCursorKeys();
@@ -58,58 +33,19 @@ export class PlayerController {
     };
   }
 
-  public update(dtSeconds: number): void {
-    const body = this.player.sprite.body as Phaser.Physics.Arcade.Body;
-    const inputDir = this.inputEnabled ? this.readInputDirection() : new Phaser.Math.Vector2(0, 0);
-
-    this.terrain = this.terrainAt(this.player.sprite.x, this.player.sprite.y);
-
-    const moving = inputDir.lengthSq() > 0;
-    const wantsSprint = this.keys.shift.isDown;
-    const canSprint = this.stamina > STAMINA_MIN_TO_SPRINT;
-    this.sprinting = moving && wantsSprint && canSprint && this.sprintEnabled;
-
-    if (this.sprinting) {
-      this.stamina = Math.max(0, this.stamina - STAMINA_DRAIN_PER_SEC * dtSeconds);
-    } else {
-      this.stamina = Math.min(STAMINA_MAX, this.stamina + STAMINA_REGEN_PER_SEC * dtSeconds);
+  public captureInputFrame(): InputFrame {
+    if (!this.inputEnabled) {
+      return { moveX: 0, moveZ: 0, sprintHeld: false };
     }
 
-    const terrainModifier = this.getTerrainSpeedModifier(this.terrain);
-    const sprintModifier = this.sprinting ? PLAYER_SPRINT_MULTIPLIER : 1;
-    const targetSpeed = PLAYER_BASE_SPEED * terrainModifier * sprintModifier * this.externalSpeedMultiplier;
+    const moveX = (this.keys.d.isDown || this.cursors.right.isDown ? 1 : 0) + (this.keys.a.isDown || this.cursors.left.isDown ? -1 : 0);
+    const moveZ = (this.keys.s.isDown || this.cursors.down.isDown ? 1 : 0) + (this.keys.w.isDown || this.cursors.up.isDown ? -1 : 0);
 
-    if (moving) {
-      const desiredDir = this.applyGullyTurnBehavior(inputDir);
-      this.lastMoveDir.copy(desiredDir);
-
-      const targetVelocityX = desiredDir.x * targetSpeed;
-      const targetVelocityY = desiredDir.y * targetSpeed;
-      const accelStep = PLAYER_ACCEL * dtSeconds;
-
-      body.setVelocityX(this.moveTowards(body.velocity.x, targetVelocityX, accelStep));
-      body.setVelocityY(this.moveTowards(body.velocity.y, targetVelocityY, accelStep));
-    } else {
-      const decelStep = PLAYER_DECEL * dtSeconds;
-      body.setVelocityX(this.moveTowards(body.velocity.x, 0, decelStep));
-      body.setVelocityY(this.moveTowards(body.velocity.y, 0, decelStep));
-    }
-  }
-
-  public getStaminaRatio(): number {
-    return this.stamina / STAMINA_MAX;
-  }
-
-  public isSprinting(): boolean {
-    return this.sprinting;
-  }
-
-  public getTerrain(): TerrainType {
-    return this.terrain;
-  }
-
-  public setExternalSpeedMultiplier(multiplier: number): void {
-    this.externalSpeedMultiplier = Math.max(0, multiplier);
+    return {
+      moveX,
+      moveZ,
+      sprintHeld: this.sprintEnabled && this.keys.shift.isDown
+    };
   }
 
   public setSprintEnabled(enabled: boolean): void {
@@ -118,49 +54,5 @@ export class PlayerController {
 
   public setInputEnabled(enabled: boolean): void {
     this.inputEnabled = enabled;
-  }
-
-  private readInputDirection(): Phaser.Math.Vector2 {
-    const x = (this.keys.d.isDown || this.cursors.right.isDown ? 1 : 0) + (this.keys.a.isDown || this.cursors.left.isDown ? -1 : 0);
-    const y = (this.keys.s.isDown || this.cursors.down.isDown ? 1 : 0) + (this.keys.w.isDown || this.cursors.up.isDown ? -1 : 0);
-
-    const dir = new Phaser.Math.Vector2(x, y);
-    if (dir.lengthSq() > 0) {
-      dir.normalize();
-    }
-
-    return dir;
-  }
-
-  private applyGullyTurnBehavior(inputDir: Phaser.Math.Vector2): Phaser.Math.Vector2 {
-    if (this.terrain !== TerrainType.GULLY) {
-      return inputDir;
-    }
-
-    return this.lastMoveDir.clone().lerp(inputDir, 1 - GULLY_TURN_STICKINESS).normalize();
-  }
-
-  private getTerrainSpeedModifier(terrain: TerrainType): number {
-    switch (terrain) {
-      case TerrainType.POWDER:
-        return TERRAIN_SPEED_MODIFIER.POWDER;
-      case TerrainType.TREES:
-        return TERRAIN_SPEED_MODIFIER.TREES;
-      case TerrainType.RIDGE_ROCK:
-        return TERRAIN_SPEED_MODIFIER.RIDGE_ROCK;
-      case TerrainType.GULLY:
-        return TERRAIN_SPEED_MODIFIER.GULLY;
-      case TerrainType.OPEN_SNOW:
-      default:
-        return TERRAIN_SPEED_MODIFIER.OPEN_SNOW;
-    }
-  }
-
-  private moveTowards(current: number, target: number, maxDelta: number): number {
-    if (Math.abs(target - current) <= maxDelta) {
-      return target;
-    }
-
-    return current + Math.sign(target - current) * maxDelta;
   }
 }

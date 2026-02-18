@@ -33,6 +33,14 @@ export function worldAngleToIso(angleRad: number): number {
   return Math.atan2(isoY, isoX);
 }
 
+export function worldRadiusToIsoEllipse(radius: number): { radiusX: number; radiusY: number } {
+  const scale = Math.SQRT2;
+  return {
+    radiusX: radius * ISO_X_SCALE * scale,
+    radiusY: radius * ISO_Y_SCALE * scale
+  };
+}
+
 export function getIsoWorldBounds(padding = 240): Phaser.Geom.Rectangle {
   const c1 = worldToIso(0, 0);
   const c2 = worldToIso(WORLD_WIDTH, 0);

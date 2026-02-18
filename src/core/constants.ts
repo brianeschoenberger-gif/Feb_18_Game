@@ -9,10 +9,21 @@ export const ISO_ELEVATION_SCALE = 0.72;
 export const ISO_ORIGIN_X = WORLD_WIDTH * ISO_X_SCALE * 0.6;
 export const ISO_ORIGIN_Y = 140;
 
+export const MOUNTAIN_FALLOFF_DIR_X = 0.34;
+export const MOUNTAIN_FALLOFF_DIR_Y = 0.94;
+export const MOUNTAIN_BASE_HEIGHT = 10;
+export const MOUNTAIN_GRADE_STRENGTH = 0.052;
+export const MOUNTAIN_ASPECT_SHADE_STRENGTH = 0.16;
+export const MOUNTAIN_CONTOUR_SPACING = 84;
+export const MOUNTAIN_HAZE_BANDS = 6;
+
 export const PLAYER_BASE_SPEED = 240;
 export const PLAYER_SPRINT_MULTIPLIER = 1.55;
 export const PLAYER_ACCEL = 1800;
 export const PLAYER_DECEL = 1700;
+export const PLAYER_COLLISION_RADIUS = 10;
+export const PLAYER_ELEVATION_VISUAL_BIAS = 0;
+export const PLAYER_CONTACT_OFFSET_Y_WORLD = 0;
 
 export const STAMINA_MAX = 100;
 export const STAMINA_DRAIN_PER_SEC = 38;
@@ -28,6 +39,15 @@ export const TERRAIN_SPEED_MODIFIER = {
 } as const;
 
 export const GULLY_TURN_STICKINESS = 0.22;
+export const SLOPE_SAMPLE_DISTANCE = 18;
+export const SLOPE_GRADE_MAX = 0.2;
+export const SLOPE_SPEED_INFLUENCE = 0.32;
+export const DOWNHILL_DRIFT_ACCEL = 120;
+export const HEIGHT_GLOBAL_GRADIENT = 0.047;
+export const HEIGHT_SMOOTHING = 16;
+export const COLLISION_MAX_STEP_DISTANCE = 4;
+export const COLLISION_MAX_SUBSTEPS = 16;
+export const COLLISION_EPSILON = 0.01;
 
 export const DISPATCH_DURATION_SEC = 3;
 export const RESCUE_TIMER_SEC = 180;
@@ -74,7 +94,9 @@ export const DANGER_GROWTH_IDLE_PER_SEC = 18;
 export const DANGER_GROWTH_AFTER_STRIKE_PER_SEC = 38;
 export const DANGER_GROWTH_AFTER_SECURE_PER_SEC = 58;
 export const DANGER_CENTER: PointLike = { x: 1540, y: 80 };
-export const DANGER_BUFFER_HIT = 6;
+export const DANGER_KILL_MARGIN = 34;
+export const DANGER_WARNING_OFFSET = 24;
+export const DANGER_FIXED_TIMESTEP_SEC = 1 / 60;
 
 export const DANGER_WARN_FAR = 280;
 export const DANGER_WARN_NEAR = 120;
@@ -102,3 +124,12 @@ export const SHAKE_WIN_MS = 170;
 export const SHAKE_WIN_INTENSITY = 0.0028;
 export const SHAKE_LOSE_MS = 180;
 export const SHAKE_LOSE_INTENSITY = 0.0045;
+
+export const CAMERA_FOLLOW_DISTANCE = 17;
+export const CAMERA_SIDE_OFFSET = 6.5;
+export const CAMERA_HEIGHT_BASE = 14;
+export const CAMERA_HEIGHT_SPEED_FACTOR = 0.018;
+export const CAMERA_LOOK_AHEAD = 5.8;
+export const CAMERA_MOUNTAIN_BIAS = 4.6;
+export const PHASER_CAMERA_FOLLOW_OFFSET_X = -24;
+export const PHASER_CAMERA_FOLLOW_OFFSET_Y = 86;

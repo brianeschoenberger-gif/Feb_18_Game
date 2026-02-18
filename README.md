@@ -26,6 +26,21 @@ Milestone 3.5 playable prototype using Vite + TypeScript + Phaser 3.
   - Phaser remains simulation authority
   - Three.js runs as read-only mirror of gameplay snapshot data
   - Mirror includes terrain, obstacles, player proxy, evac beacon, and danger ring
+- Chunk 2 simulation locomotion/collision foundation:
+  - Player movement and collision now resolved in simulation space
+  - Phaser Arcade body is no longer movement authority
+  - Terrain speed modifiers, sprint, stamina, and carry penalties preserved
+- Chunk 3 terrain-grade and camera refinement:
+  - Height + slope sampling added to simulation for downhill/uphill feel
+  - Collision resolver upgraded to iterative circle-vs-obstacle depenetration
+  - Three mirror camera now uses velocity-aware follow + look-ahead
+  - Player proxy mirrors simulated elevation for clearer 2.5D depth cues
+- Mountain-side illusion pass:
+  - Shared mountain profile model drives elevation/aspect/contour visuals
+  - Map now renders contour lines, valley haze bands, and slope-aware terrain tinting
+  - Procedural skyline/backdrop parallax added behind gameplay map
+  - Phaser camera follow offset tuned for “on-the-face” downhill framing
+  - Three mirror terrain/camera lighting updated for matching mountainside read
 
 ## Controls
 - Move: `WASD` or Arrow keys

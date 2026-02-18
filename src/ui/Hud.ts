@@ -314,20 +314,20 @@ export class Hud {
     }
 
     if (distance <= DANGER_WARN_NEAR) {
-      this.dangerText.setText(`DANGER: CRITICAL (${Math.max(0, Math.round(distance))}m)`);
+      this.dangerText.setText(`DANGER: CRITICAL (${Math.max(0, Math.round(distance))}m to lethal)`);
       this.dangerText.setColor("#ff6f6f");
       this.dangerText.setScale(1 + Math.sin(this.scene.time.now / 80) * 0.035);
       return;
     }
 
     if (distance <= DANGER_WARN_FAR || phase !== "IDLE") {
-      this.dangerText.setText(`DANGER: RISING (${Math.round(distance)}m)`);
+      this.dangerText.setText(`DANGER: RISING (${Math.round(distance)}m to lethal)`);
       this.dangerText.setColor("#ffb870");
       this.dangerText.setScale(1);
       return;
     }
 
-    this.dangerText.setText(`DANGER: LOW (${Math.round(distance)}m)`);
+    this.dangerText.setText(`DANGER: LOW (${Math.round(distance)}m to lethal)`);
     this.dangerText.setColor("#ffd4a4");
     this.dangerText.setScale(1);
   }

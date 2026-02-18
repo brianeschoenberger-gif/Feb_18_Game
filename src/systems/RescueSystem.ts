@@ -39,14 +39,14 @@ export interface RescueSnapshot {
 
 interface RescueSystemOptions {
   readonly scene: Phaser.Scene;
-  readonly playerSprite: Phaser.Physics.Arcade.Sprite;
+  readonly playerPosition: () => { x: number; y: number };
   readonly evacZone: Phaser.Geom.Rectangle;
   readonly projectPoint: (x: number, y: number, elevation?: number) => Phaser.Math.Vector2;
 }
 
 export class RescueSystem {
   private readonly scene: Phaser.Scene;
-  private readonly playerSprite: Phaser.Physics.Arcade.Sprite;
+  private readonly playerPosition: () => { x: number; y: number };
   private readonly evacZone: Phaser.Geom.Rectangle;
   private readonly projectPoint: (x: number, y: number, elevation?: number) => Phaser.Math.Vector2;
 
@@ -77,7 +77,7 @@ export class RescueSystem {
 
   public constructor(options: RescueSystemOptions) {
     this.scene = options.scene;
-    this.playerSprite = options.playerSprite;
+    this.playerPosition = options.playerPosition;
     this.evacZone = options.evacZone;
     this.projectPoint = options.projectPoint;
 
@@ -135,7 +135,8 @@ export class RescueSystem {
 
     if (this.mode === "CARRY") {
       this.objective = "Get to EVAC";
-      if (this.evacZone.contains(this.playerSprite.x, this.playerSprite.y)) {
+      const pos = this.playerPosition();
+      if (this.evacZone.contains(pos.x, pos.y)) {
         this.runState = "WIN";
         this.pushBanner("RESCUE COMPLETE");
       }
@@ -190,12 +191,13 @@ export class RescueSystem {
     }
 
     this.probesRemaining -= 1;
-    const markerPos = this.projectPoint(this.playerSprite.x, this.playerSprite.y, 8);
+    const pos = this.playerPosition();
+    const markerPos = this.projectPoint(pos.x, pos.y, 8);
     const marker = this.scene.add.image(markerPos.x, markerPos.y, "probeMarker");
-    marker.setDepth(this.playerSprite.y + 32);
+    marker.setDepth(pos.y + 32);
     this.probeMarkers.add(marker);
 
-    const distance = Phaser.Math.Distance.Between(this.playerSprite.x, this.playerSprite.y, this.victimPoint.x, this.victimPoint.y);
+    const distance = Phaser.Math.Distance.Between(pos.x, pos.y, this.victimPoint.x, this.victimPoint.y);
     if (distance <= PROBE_SUCCESS_RADIUS) {
       this.mode = "DIG";
       this.digProgress = 0;
@@ -221,8 +223,9 @@ export class RescueSystem {
   }
 
   private updateDirectionalSignal(): void {
-    const dx = this.victimPoint.x - this.playerSprite.x;
-    const dy = this.victimPoint.y - this.playerSprite.y;
+    const pos = this.playerPosition();
+    const dx = this.victimPoint.x - pos.x;
+    const dy = this.victimPoint.y - pos.y;
     const distance = Math.hypot(dx, dy);
 
     this.directionAngleRad = Math.atan2(dy, dx);
