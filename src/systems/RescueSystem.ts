@@ -71,6 +71,7 @@ export class RescueSystem {
 
   private readonly victimPoint: Phaser.Math.Vector2;
   private readonly probeMarkers: Phaser.GameObjects.Group;
+  private destroyed = false;
 
   public constructor(options: RescueSystemOptions) {
     this.scene = options.scene;
@@ -174,6 +175,10 @@ export class RescueSystem {
   }
 
   public destroy(): void {
+    if (this.destroyed) {
+      return;
+    }
+    this.destroyed = true;
     this.probeMarkers.clear(true, true);
   }
 

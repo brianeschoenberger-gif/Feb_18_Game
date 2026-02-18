@@ -18,6 +18,7 @@ export class GameScene extends Phaser.Scene {
   private dangerZone!: DangerZone;
   private beep!: Beep;
   private previousBannerText = "";
+  private didShutdown = false;
 
   public constructor() {
     super("GameScene");
@@ -124,6 +125,11 @@ export class GameScene extends Phaser.Scene {
   }
 
   private handleShutdown(): void {
+    if (this.didShutdown) {
+      return;
+    }
+    this.didShutdown = true;
+
     if (this.beep) {
       this.beep.destroy();
     }
