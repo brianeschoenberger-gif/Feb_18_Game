@@ -23,18 +23,20 @@ export class DangerZone {
   private phase: DangerPhase = "IDLE";
   private radius = DANGER_INITIAL_RADIUS;
   private destroyed = false;
+  private pulse = 0;
 
   public constructor(private readonly scene: Phaser.Scene) {
     this.graphics = this.scene.add.graphics();
     this.graphics.setDepth(50);
   }
 
-  public update(_dtSec: number): void {
+  public update(dtSec: number): void {
     if (this.destroyed) {
       return;
     }
 
-    this.radius += this.getGrowthRate() * _dtSec;
+    this.radius += this.getGrowthRate() * dtSec;
+    this.pulse = (this.pulse + dtSec * this.getPulseSpeed()) % 1;
     this.draw();
   }
 
@@ -50,6 +52,15 @@ export class DangerZone {
   public distanceToEdge(x: number, y: number): number {
     const distance = Phaser.Math.Distance.Between(x, y, this.center.x, this.center.y);
     return distance - this.radius;
+  }
+
+  public getPressureAt(x: number, y: number): number {
+    const edgeDistance = this.distanceToEdge(x, y);
+    if (edgeDistance <= 0) {
+      return 1;
+    }
+
+    return Phaser.Math.Clamp(1 - edgeDistance / 450, 0, 1);
   }
 
   public getSnapshot(): DangerSnapshot {
@@ -81,15 +92,32 @@ export class DangerZone {
     }
   }
 
+  private getPulseSpeed(): number {
+    switch (this.phase) {
+      case "AFTER_STRIKE":
+        return 0.9;
+      case "AFTER_SECURE":
+        return 1.4;
+      case "IDLE":
+      default:
+        return 0.55;
+    }
+  }
+
   private draw(): void {
+    const pulseValue = Math.sin(this.pulse * Math.PI * 2) * 0.5 + 0.5;
+    const fillAlpha = Phaser.Math.Linear(0.13, 0.22, pulseValue);
+    const strokeAlpha = Phaser.Math.Linear(0.7, 0.98, pulseValue);
+    const strokeWidth = Phaser.Math.Linear(2.5, 5.2, pulseValue);
+
     this.graphics.clear();
-    this.graphics.fillStyle(0xb52929, 0.16);
+    this.graphics.fillStyle(0xb52929, fillAlpha);
     this.graphics.fillCircle(this.center.x, this.center.y, this.radius);
 
-    this.graphics.lineStyle(4, 0xff5a5a, 0.88);
+    this.graphics.lineStyle(strokeWidth, 0xff5a5a, strokeAlpha);
     this.graphics.strokeCircle(this.center.x, this.center.y, this.radius);
 
-    this.graphics.lineStyle(1.5, 0xff9e9e, 0.5);
-    this.graphics.strokeCircle(this.center.x, this.center.y, this.radius + 10);
+    this.graphics.lineStyle(1.4, 0xff9e9e, 0.5);
+    this.graphics.strokeCircle(this.center.x, this.center.y, this.radius + 12 + pulseValue * 8);
   }
 }

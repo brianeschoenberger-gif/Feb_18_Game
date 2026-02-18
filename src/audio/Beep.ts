@@ -41,13 +41,32 @@ export class Beep {
 
   public playStrike(): void {
     this.ensureContext();
-    this.playChirp(0.09, 980, "sawtooth", 0.08);
+    this.playChirp(0.09, 980, "sawtooth", 0.07);
   }
 
   public playSecure(): void {
     this.ensureContext();
-    this.playChirp(0.16, 650, "sine", 0.09);
-    this.playChirp(0.16, 830, "sine", 0.07, 0.1);
+    this.playChirp(0.16, 650, "sine", 0.07);
+    this.playChirp(0.16, 830, "sine", 0.055, 0.1);
+  }
+
+  public playRadioDispatch(): void {
+    this.ensureContext();
+    this.playChirp(0.09, 560, "square", 0.04);
+    this.playChirp(0.09, 680, "square", 0.035, 0.12);
+  }
+
+  public playWinCue(): void {
+    this.ensureContext();
+    this.playChirp(0.12, 620, "triangle", 0.05);
+    this.playChirp(0.12, 820, "triangle", 0.05, 0.12);
+    this.playChirp(0.14, 1020, "triangle", 0.045, 0.24);
+  }
+
+  public playLoseCue(): void {
+    this.ensureContext();
+    this.playChirp(0.18, 420, "sawtooth", 0.055);
+    this.playChirp(0.18, 290, "sawtooth", 0.05, 0.16);
   }
 
   public destroy(): void {

@@ -1,5 +1,12 @@
 import Phaser from "phaser";
-import { DANGER_WARN_FAR, DANGER_WARN_NEAR } from "../core/constants";
+import {
+  BANNER_TWEEN_IN_MS,
+  BANNER_TWEEN_OUT_MS,
+  DANGER_WARN_FAR,
+  DANGER_WARN_NEAR,
+  TIMER_URGENCY_CRITICAL_SEC,
+  TIMER_URGENCY_HIGH_SEC
+} from "../core/constants";
 import { LoseReason, RescueMode, RunState } from "../systems/RescueSystem";
 import { DangerPhase } from "../systems/DangerZone";
 import { TerrainType } from "../world/Terrain";
@@ -54,7 +61,10 @@ export class Hud {
   private readonly maxBarWidth = 280;
   private readonly maxDigWidth = 260;
 
-  public constructor(scene: Phaser.Scene) {
+  private lastMode: RescueMode = "SEARCH";
+  private lastBannerText = "";
+
+  public constructor(private readonly scene: Phaser.Scene) {
     this.barBackground = scene.add.rectangle(30, 26, this.maxBarWidth, 18, 0x1f2a36, 0.9).setOrigin(0, 0).setScrollFactor(0);
     this.barFill = scene.add.rectangle(30, 26, this.maxBarWidth, 18, 0x65d478, 1).setOrigin(0, 0).setScrollFactor(0);
 
@@ -82,7 +92,8 @@ export class Hud {
         color: "#fff2a8",
         fontStyle: "bold"
       })
-      .setScrollFactor(0);
+      .setScrollFactor(0)
+      .setOrigin(0, 0.5);
 
     this.objectiveText = scene.add
       .text(30, 102, "OBJECTIVE: Find strongest transceiver signal", {
@@ -117,7 +128,8 @@ export class Hud {
         color: "#ffd6d6",
         fontStyle: "bold"
       })
-      .setScrollFactor(0);
+      .setScrollFactor(0)
+      .setOrigin(0, 0.5);
 
     this.dangerText = scene.add
       .text(30, 198, "DANGER: LOW", {
@@ -126,7 +138,8 @@ export class Hud {
         color: "#ffd4a4",
         fontStyle: "bold"
       })
-      .setScrollFactor(0);
+      .setScrollFactor(0)
+      .setOrigin(0, 0.5);
 
     this.hintText = scene.add
       .text(30, 222, "Move: WASD/Arrows  Sprint: Shift  Mode: Tab  Action: E  Restart: R", {
@@ -182,7 +195,8 @@ export class Hud {
       })
       .setOrigin(0.5, 0)
       .setScrollFactor(0)
-      .setDepth(210);
+      .setDepth(210)
+      .setAlpha(0);
 
     this.hideResult();
   }
@@ -207,6 +221,18 @@ export class Hud {
     this.probeText.setText(`PROBES: ${view.probesRemaining}`);
     this.timerText.setText(`TIME: ${this.formatTime(view.timerSec)}`);
 
+    if (view.mode !== this.lastMode) {
+      this.scene.tweens.add({
+        targets: this.modeText,
+        scaleX: 1.08,
+        scaleY: 1.08,
+        yoyo: true,
+        duration: 110
+      });
+      this.lastMode = view.mode;
+    }
+
+    this.updateTimerUrgency(view.timerSec);
     this.updateDangerReadout(view.dangerPhase, view.dangerDistance, view.dangerActive);
 
     const digVisible = view.mode === "DIG" && view.runState === "ACTIVE";
@@ -230,31 +256,79 @@ export class Hud {
       this.hideResult();
     }
 
-    this.bannerText.setText(view.bannerText);
-    this.bannerText.setVisible(view.bannerText.length > 0);
+    if (view.bannerText !== this.lastBannerText) {
+      this.playBannerTween(view.bannerText);
+      this.lastBannerText = view.bannerText;
+    }
+  }
+
+  private playBannerTween(text: string): void {
+    if (!text) {
+      this.scene.tweens.add({
+        targets: this.bannerText,
+        alpha: 0,
+        duration: BANNER_TWEEN_OUT_MS
+      });
+      return;
+    }
+
+    this.bannerText.setText(text);
+    this.bannerText.setScale(0.85);
+    this.bannerText.setAlpha(0);
+    this.scene.tweens.add({
+      targets: this.bannerText,
+      alpha: 1,
+      scaleX: 1,
+      scaleY: 1,
+      duration: BANNER_TWEEN_IN_MS,
+      ease: "Quad.Out"
+    });
+  }
+
+  private updateTimerUrgency(timerSec: number): void {
+    const wobble = 1 + Math.sin(this.scene.time.now / 90) * 0.03;
+
+    if (timerSec <= TIMER_URGENCY_CRITICAL_SEC) {
+      this.timerText.setColor("#ff7b7b");
+      this.timerText.setScale(wobble + 0.04);
+      return;
+    }
+
+    if (timerSec <= TIMER_URGENCY_HIGH_SEC) {
+      this.timerText.setColor("#ffbf7a");
+      this.timerText.setScale(wobble);
+      return;
+    }
+
+    this.timerText.setColor("#ffd6d6");
+    this.timerText.setScale(1);
   }
 
   private updateDangerReadout(phase: DangerPhase, distance: number, active: boolean): void {
     if (!active) {
       this.dangerText.setText("DANGER: OFF");
       this.dangerText.setColor("#8ea0b2");
+      this.dangerText.setScale(1);
       return;
     }
 
     if (distance <= DANGER_WARN_NEAR) {
       this.dangerText.setText(`DANGER: CRITICAL (${Math.max(0, Math.round(distance))}m)`);
       this.dangerText.setColor("#ff6f6f");
+      this.dangerText.setScale(1 + Math.sin(this.scene.time.now / 80) * 0.035);
       return;
     }
 
     if (distance <= DANGER_WARN_FAR || phase !== "IDLE") {
       this.dangerText.setText(`DANGER: RISING (${Math.round(distance)}m)`);
       this.dangerText.setColor("#ffb870");
+      this.dangerText.setScale(1);
       return;
     }
 
     this.dangerText.setText(`DANGER: LOW (${Math.round(distance)}m)`);
     this.dangerText.setColor("#ffd4a4");
+    this.dangerText.setScale(1);
   }
 
   private showResult(text: string, color: string): void {

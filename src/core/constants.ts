@@ -73,3 +73,27 @@ export const DANGER_BUFFER_HIT = 6;
 
 export const DANGER_WARN_FAR = 280;
 export const DANGER_WARN_NEAR = 120;
+
+export const TIMER_URGENCY_HIGH_SEC = 60;
+export const TIMER_URGENCY_CRITICAL_SEC = 20;
+
+export const BANNER_TWEEN_IN_MS = 140;
+export const BANNER_TWEEN_OUT_MS = 220;
+
+export const SNOW_PARTICLE_COUNT = 70;
+export const SNOW_PARTICLE_MIN_SPEED = 6;
+export const SNOW_PARTICLE_MAX_SPEED = 24;
+
+export const AMBIENCE_BASE_GAIN = 0.015;
+export const AMBIENCE_MAX_GAIN = 0.055;
+
+export const SHAKE_STRIKE_MS = 120;
+export const SHAKE_STRIKE_INTENSITY = 0.0032;
+export const SHAKE_SECURE_MS = 160;
+export const SHAKE_SECURE_INTENSITY = 0.0038;
+export const SHAKE_DANGER_MS = 230;
+export const SHAKE_DANGER_INTENSITY = 0.006;
+export const SHAKE_WIN_MS = 170;
+export const SHAKE_WIN_INTENSITY = 0.0028;
+export const SHAKE_LOSE_MS = 180;
+export const SHAKE_LOSE_INTENSITY = 0.0045;

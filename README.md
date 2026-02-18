@@ -1,21 +1,23 @@
 # CODE WHITE: Tahoe Rescue
 
-Milestone 2 playable prototype using Vite + TypeScript + Phaser 3.
+Milestone 3 playable prototype using Vite + TypeScript + Phaser 3.
 
-## Milestone 2 Features
-- Milestone 1 rescue loop is fully intact (Dispatch -> Search -> Probe -> Dig -> Carry -> Evac).
-- Secondary slide pressure system:
-  - Expanding danger zone starts at run start.
-  - Growth phase escalates by rescue progress:
-    - `IDLE` before strike
-    - `AFTER_STRIKE` after successful probe
-    - `AFTER_SECURE` after victim secured
-  - Contact with danger zone causes immediate loss.
-- HUD pressure feedback:
-  - `DANGER: LOW / RISING / CRITICAL`
-  - Color-coded urgency by distance to danger edge.
-- Danger-specific lose messaging:
-  - `CAUGHT BY SECONDARY SLIDE`
+## Milestone 3 Features
+- Milestone 1 + 2 gameplay loop preserved.
+- Procedural audio polish:
+  - Wind ambience bed (danger-proximity intensity)
+  - Dispatch/strike/secure/win/lose stingers
+- Impact feedback:
+  - Camera shake by event severity
+  - Screen flash accents (strike, secure, danger, win/lose)
+- HUD polish:
+  - Animated mode badge pulse on change
+  - Animated banner transitions
+  - Timer urgency animation at `<60s` and `<20s`
+  - Critical danger shimmer
+- World polish:
+  - Subtle drifting snow overlay
+  - Stronger evac beacon glow pulse
 
 ## Controls
 - Move: `WASD` or Arrow keys
@@ -47,22 +49,16 @@ npm run build
 npm run preview
 ```
 
-## Known-Good Build/Deploy
-```powershell
-npm.cmd run build
-git add src/main.ts src/world/Map.ts README.md
-git commit -m "Stabilize Milestone 2 startup and pressure loop"
-git push
-```
-
-## Manual Test Plan (10 Steps)
-1. Launch game and confirm dispatch overlay appears for ~3 seconds with `CODE WHITE - last seen near West Ridge`.
-2. After dispatch, confirm danger zone is visible and expanding slowly from upper map.
-3. Verify HUD shows danger as `LOW` when far from boundary.
-4. Play to STRIKE in PROBE mode and verify danger growth speed increases.
-5. Complete DIG and verify danger growth speed increases again (fastest phase).
-6. Enter the danger zone edge and confirm immediate loss with `CAUGHT BY SECONDARY SLIDE` and restart hint.
-7. On another run, avoid zone and let timer reach zero; confirm loss occurs from timer path instead.
-8. Confirm SEARCH beeps, signal number, and direction arrow still work unchanged.
-9. Confirm CARRY still reduces speed and disables sprint after `VICTIM SECURED`.
-10. Reach EVAC before timer/danger and confirm WIN still works, then press `R` and verify a clean reset.
+## Manual Test Plan (12 Steps)
+1. Launch game and verify dispatch overlay appears ~3s and gameplay begins.
+2. Confirm no startup error overlay and map renders with drifting snow + evac glow.
+3. In SEARCH, verify signal number + direction arrow + proximity beeps still behave correctly.
+4. Confirm wind ambience is audible after gameplay begins.
+5. Move closer to danger zone and confirm ambience intensity rises.
+6. Toggle SEARCH/PROBE and verify mode badge pulses on mode change.
+7. Trigger `STRIKE!` and verify animated banner + shake + flash + strike stinger.
+8. Complete DIG and verify `VICTIM SECURED` banner + secure shake/flash/cue.
+9. Let timer drop below 60s and 20s; verify urgency animation intensifies.
+10. Enter danger zone and verify danger-specific lose message + strong feedback.
+11. Complete a win run and verify win cue + celebratory feedback.
+12. Press `R` after win/lose repeatedly (5x) and verify clean restart with no teardown/startup errors.

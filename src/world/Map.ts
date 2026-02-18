@@ -1,12 +1,26 @@
 import Phaser from "phaser";
-import { EVAC_ZONE_RECT } from "../core/constants";
+import {
+  EVAC_ZONE_RECT,
+  SNOW_PARTICLE_COUNT,
+  SNOW_PARTICLE_MAX_SPEED,
+  SNOW_PARTICLE_MIN_SPEED,
+  WORLD_HEIGHT,
+  WORLD_WIDTH
+} from "../core/constants";
 import { WORLD_BOUNDS } from "../core/gameConfig";
 import { TerrainField, TerrainType, TerrainZone } from "./Terrain";
+
+interface SnowParticle {
+  readonly dot: Phaser.GameObjects.Arc;
+  readonly speedX: number;
+  readonly speedY: number;
+}
 
 export class RescueMap {
   public readonly terrain: TerrainField;
   private readonly evacZone = new Phaser.Geom.Rectangle(EVAC_ZONE_RECT.x, EVAC_ZONE_RECT.y, EVAC_ZONE_RECT.width, EVAC_ZONE_RECT.height);
   private readonly beaconPulse: Phaser.GameObjects.Arc[] = [];
+  private readonly snowParticles: SnowParticle[] = [];
 
   public constructor(scene: Phaser.Scene) {
     const zones = this.buildZones();
@@ -17,15 +31,29 @@ export class RescueMap {
     this.drawLandmark(scene);
     this.drawEvacZone(scene);
     this.createBeaconPulse(scene);
+    this.createSnow(scene);
   }
 
-  public update(timeMs: number): void {
+  public update(timeMs: number, dtSec: number): void {
     const cycle = (timeMs % 1500) / 1500;
     this.beaconPulse.forEach((ring, index) => {
       const phase = (cycle + index * 0.33) % 1;
-      ring.setScale(0.7 + phase * 2.2);
-      ring.setAlpha(0.42 * (1 - phase));
+      ring.setScale(0.8 + phase * 2.5);
+      ring.setAlpha(0.52 * (1 - phase));
     });
+
+    for (let i = 0; i < this.snowParticles.length; i += 1) {
+      const p = this.snowParticles[i];
+      p.dot.x += p.speedX * dtSec;
+      p.dot.y += p.speedY * dtSec;
+
+      if (p.dot.y > WORLD_HEIGHT + 4) {
+        p.dot.y = -4;
+      }
+      if (p.dot.x > WORLD_WIDTH + 4) {
+        p.dot.x = -4;
+      }
+    }
   }
 
   public getEvacZone(): Phaser.Geom.Rectangle {
@@ -98,15 +126,26 @@ export class RescueMap {
         fontStyle: "bold"
       })
       .setAlpha(0.92);
+
+    scene.add.circle(this.evacZone.centerX, this.evacZone.centerY, 90, 0x8ae9ff, 0.08);
   }
 
   private createBeaconPulse(scene: Phaser.Scene): void {
     const cx = this.evacZone.centerX;
     const cy = this.evacZone.centerY;
     for (let i = 0; i < 3; i += 1) {
-      const ring = scene.add.circle(cx, cy, 20, 0xa6e7ff, 0.15);
-      ring.setStrokeStyle(3, 0xd8f6ff, 0.9);
+      const ring = scene.add.circle(cx, cy, 20, 0xa6e7ff, 0.17);
+      ring.setStrokeStyle(3, 0xd8f6ff, 0.95);
       this.beaconPulse.push(ring);
+    }
+  }
+
+  private createSnow(scene: Phaser.Scene): void {
+    for (let i = 0; i < SNOW_PARTICLE_COUNT; i += 1) {
+      const dot = scene.add.circle(Math.random() * WORLD_WIDTH, Math.random() * WORLD_HEIGHT, 1.2 + Math.random() * 1.6, 0xffffff, 0.19 + Math.random() * 0.2);
+      const speedY = Phaser.Math.Linear(SNOW_PARTICLE_MIN_SPEED, SNOW_PARTICLE_MAX_SPEED, Math.random());
+      const speedX = Phaser.Math.Linear(1.8, 10.5, Math.random());
+      this.snowParticles.push({ dot, speedX, speedY });
     }
   }
 

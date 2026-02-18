@@ -1,10 +1,12 @@
 import Phaser from "phaser";
 import { WORLD_BOUNDS } from "../core/gameConfig";
+import { Ambience } from "../audio/Ambience";
 import { Beep } from "../audio/Beep";
 import { Player } from "../player/Player";
 import { PlayerController } from "../player/PlayerController";
 import { DangerZone } from "../systems/DangerZone";
-import { RescueSystem, RescueSnapshot } from "../systems/RescueSystem";
+import { FeedbackSystem } from "../systems/FeedbackSystem";
+import { RescueSystem, RescueSnapshot, RunState } from "../systems/RescueSystem";
 import { Hud } from "../ui/Hud";
 import { RescueMap } from "../world/Map";
 import { Obstacles } from "../world/Obstacles";
@@ -16,8 +18,11 @@ export class GameScene extends Phaser.Scene {
   private map!: RescueMap;
   private rescueSystem!: RescueSystem;
   private dangerZone!: DangerZone;
+  private feedback!: FeedbackSystem;
   private beep!: Beep;
+  private ambience!: Ambience;
   private previousBannerText = "";
+  private previousRunState: RunState = "DISPATCH";
   private didShutdown = false;
 
   public constructor() {
@@ -47,7 +52,9 @@ export class GameScene extends Phaser.Scene {
     });
 
     this.dangerZone = new DangerZone(this);
+    this.feedback = new FeedbackSystem(this);
     this.beep = new Beep(this);
+    this.ambience = new Ambience(this);
 
     this.cameras.main.startFollow(this.player.sprite, true, 0.12, 0.12);
 
@@ -60,7 +67,7 @@ export class GameScene extends Phaser.Scene {
   public update(time: number, delta: number): void {
     const dtSeconds = delta / 1000;
 
-    this.map.update(time);
+    this.map.update(time, dtSeconds);
 
     this.rescueSystem.update(dtSeconds);
     let rescueView = this.rescueSystem.getSnapshot();
@@ -80,9 +87,13 @@ export class GameScene extends Phaser.Scene {
     if (rescueView.runState === "ACTIVE" && this.dangerZone.isPlayerInDanger(this.player.sprite.x, this.player.sprite.y)) {
       this.rescueSystem.forceLose("DANGER");
       rescueView = this.rescueSystem.getSnapshot();
+      this.feedback.trigger("DANGER_HIT");
     }
 
     const dangerDistance = this.dangerZone.distanceToEdge(this.player.sprite.x, this.player.sprite.y);
+    const pressure = this.dangerZone.getPressureAt(this.player.sprite.x, this.player.sprite.y);
+
+    this.feedback.update(dtSeconds);
 
     this.hud.updateView({
       staminaRatio: this.controller.getStaminaRatio(),
@@ -105,7 +116,15 @@ export class GameScene extends Phaser.Scene {
     });
 
     this.beep.update(dtSeconds, rescueView.signal, rescueView.runState === "ACTIVE" && rescueView.mode === "SEARCH");
+
+    if (rescueView.runState === "ACTIVE") {
+      this.ambience.start();
+      this.ambience.setIntensity(pressure);
+    }
+
     this.playOneShotFeedback(rescueView);
+    this.handleRunStateTransitions(rescueView);
+    this.previousRunState = rescueView.runState;
   }
 
   private playOneShotFeedback(snapshot: RescueSnapshot): void {
@@ -115,13 +134,37 @@ export class GameScene extends Phaser.Scene {
 
     if (snapshot.bannerText === "STRIKE!") {
       this.beep.playStrike();
+      this.feedback.trigger("STRIKE");
     }
 
     if (snapshot.bannerText === "VICTIM SECURED") {
       this.beep.playSecure();
+      this.feedback.trigger("SECURE");
     }
 
     this.previousBannerText = snapshot.bannerText;
+  }
+
+  private handleRunStateTransitions(snapshot: RescueSnapshot): void {
+    if (snapshot.runState === this.previousRunState) {
+      return;
+    }
+
+    if (this.previousRunState === "DISPATCH" && snapshot.runState === "ACTIVE") {
+      this.beep.playRadioDispatch();
+      return;
+    }
+
+    if (snapshot.runState === "WIN") {
+      this.beep.playWinCue();
+      this.feedback.trigger("WIN");
+      return;
+    }
+
+    if (snapshot.runState === "LOSE") {
+      this.beep.playLoseCue();
+      this.feedback.trigger(snapshot.loseReason === "DANGER" ? "DANGER_HIT" : "LOSE");
+    }
   }
 
   private handleShutdown(): void {
@@ -132,6 +175,14 @@ export class GameScene extends Phaser.Scene {
 
     if (this.beep) {
       this.beep.destroy();
+    }
+
+    if (this.ambience) {
+      this.ambience.destroy();
+    }
+
+    if (this.feedback) {
+      this.feedback.destroy();
     }
   }
 }
