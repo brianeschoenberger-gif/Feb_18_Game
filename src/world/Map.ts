@@ -1,9 +1,12 @@
-﻿import Phaser from "phaser";
+import Phaser from "phaser";
+import { EVAC_ZONE_RECT } from "../core/constants";
 import { WORLD_BOUNDS } from "../core/gameConfig";
 import { TerrainField, TerrainType, TerrainZone } from "./Terrain";
 
 export class RescueMap {
   public readonly terrain: TerrainField;
+  private readonly evacZone = new Phaser.Geom.Rectangle(EVAC_ZONE_RECT.x, EVAC_ZONE_RECT.y, EVAC_ZONE_RECT.width, EVAC_ZONE_RECT.height);
+  private readonly beaconPulse: Phaser.GameObjects.Arc[] = [];
 
   public constructor(scene: Phaser.Scene) {
     const zones = this.buildZones();
@@ -12,6 +15,21 @@ export class RescueMap {
     this.drawBase(scene);
     this.drawTerrain(scene, zones);
     this.drawLandmark(scene);
+    this.drawEvacZone(scene);
+    this.createBeaconPulse(scene);
+  }
+
+  public update(timeMs: number): void {
+    const cycle = (timeMs % 1500) / 1500;
+    this.beaconPulse.forEach((ring, index) => {
+      const phase = (cycle + index * 0.33) % 1;
+      ring.radius = 16 + phase * 64;
+      ring.setAlpha(0.42 * (1 - phase));
+    });
+  }
+
+  public getEvacZone(): Phaser.Geom.Rectangle {
+    return this.evacZone;
   }
 
   private drawBase(scene: Phaser.Scene): void {
@@ -63,6 +81,33 @@ export class RescueMap {
         fontStyle: "bold"
       })
       .setAlpha(0.82);
+  }
+
+  private drawEvacZone(scene: Phaser.Scene): void {
+    const evac = scene.add.graphics();
+    evac.fillStyle(0x6ec6ff, 0.18);
+    evac.fillRect(this.evacZone.x, this.evacZone.y, this.evacZone.width, this.evacZone.height);
+    evac.lineStyle(3, 0x8adaff, 0.75);
+    evac.strokeRect(this.evacZone.x, this.evacZone.y, this.evacZone.width, this.evacZone.height);
+
+    scene.add
+      .text(this.evacZone.centerX - 28, this.evacZone.y + 10, "EVAC", {
+        fontFamily: "Verdana",
+        fontSize: "20px",
+        color: "#b8ecff",
+        fontStyle: "bold"
+      })
+      .setAlpha(0.92);
+  }
+
+  private createBeaconPulse(scene: Phaser.Scene): void {
+    const cx = this.evacZone.centerX;
+    const cy = this.evacZone.centerY;
+    for (let i = 0; i < 3; i += 1) {
+      const ring = scene.add.circle(cx, cy, 20, 0xa6e7ff, 0.15);
+      ring.setStrokeStyle(3, 0xd8f6ff, 0.9);
+      this.beaconPulse.push(ring);
+    }
   }
 
   private buildZones(): TerrainZone[] {

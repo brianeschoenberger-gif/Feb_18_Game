@@ -38,6 +38,9 @@ export class PlayerController {
   private sprinting = false;
   private terrain = TerrainType.OPEN_SNOW;
   private lastMoveDir = new Phaser.Math.Vector2(0, -1);
+  private externalSpeedMultiplier = 1;
+  private sprintEnabled = true;
+  private inputEnabled = true;
 
   public constructor(options: PlayerControllerOptions) {
     this.scene = options.scene;
@@ -57,14 +60,14 @@ export class PlayerController {
 
   public update(dtSeconds: number): void {
     const body = this.player.sprite.body as Phaser.Physics.Arcade.Body;
-    const inputDir = this.readInputDirection();
+    const inputDir = this.inputEnabled ? this.readInputDirection() : new Phaser.Math.Vector2(0, 0);
 
     this.terrain = this.terrainAt(this.player.sprite.x, this.player.sprite.y);
 
     const moving = inputDir.lengthSq() > 0;
     const wantsSprint = this.keys.shift.isDown;
     const canSprint = this.stamina > STAMINA_MIN_TO_SPRINT;
-    this.sprinting = moving && wantsSprint && canSprint;
+    this.sprinting = moving && wantsSprint && canSprint && this.sprintEnabled;
 
     if (this.sprinting) {
       this.stamina = Math.max(0, this.stamina - STAMINA_DRAIN_PER_SEC * dtSeconds);
@@ -74,7 +77,7 @@ export class PlayerController {
 
     const terrainModifier = this.getTerrainSpeedModifier(this.terrain);
     const sprintModifier = this.sprinting ? PLAYER_SPRINT_MULTIPLIER : 1;
-    const targetSpeed = PLAYER_BASE_SPEED * terrainModifier * sprintModifier;
+    const targetSpeed = PLAYER_BASE_SPEED * terrainModifier * sprintModifier * this.externalSpeedMultiplier;
 
     if (moving) {
       const desiredDir = this.applyGullyTurnBehavior(inputDir);
@@ -103,6 +106,18 @@ export class PlayerController {
 
   public getTerrain(): TerrainType {
     return this.terrain;
+  }
+
+  public setExternalSpeedMultiplier(multiplier: number): void {
+    this.externalSpeedMultiplier = Math.max(0, multiplier);
+  }
+
+  public setSprintEnabled(enabled: boolean): void {
+    this.sprintEnabled = enabled;
+  }
+
+  public setInputEnabled(enabled: boolean): void {
+    this.inputEnabled = enabled;
   }
 
   private readInputDirection(): Phaser.Math.Vector2 {

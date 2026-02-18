@@ -28,6 +28,13 @@ export class BootScene extends Phaser.Scene {
     g.strokeRoundedRect(0, 0, 40, 28, 8);
     g.generateTexture("rock", 40, 28);
 
+    g.clear();
+    g.fillStyle(0xffdd8f, 1);
+    g.fillCircle(10, 10, 7);
+    g.lineStyle(2, 0xffffff, 0.9);
+    g.strokeCircle(10, 10, 8);
+    g.generateTexture("probeMarker", 20, 20);
+
     g.destroy();
 
     this.scene.start("GameScene");

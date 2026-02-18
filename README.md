@@ -1,21 +1,30 @@
-﻿# CODE WHITE: Tahoe Rescue
+# CODE WHITE: Tahoe Rescue
 
-Milestone 0 playable prototype using Vite + TypeScript + Phaser 3.
+Milestone 1 playable prototype using Vite + TypeScript + Phaser 3.
 
-## Milestone 0 Features
-- Top-down deterministic ski-area map with boundaries.
-- Terrain speed modifiers:
-  - `OPEN_SNOW`: normal speed
-  - `POWDER`: slower
-  - `TREES`: slower
-  - `RIDGE/ROCK`: slower
-  - `GULLY`: slightly faster with sticky turning
-- Player movement:
-  - `WASD` or arrow keys
-  - `Shift` sprint with stamina drain/regen
-  - Map bounds + obstacle collisions (trees/rocks)
-- Camera follow
-- Minimal HUD with stamina + terrain + controls hint
+## Milestone 1 Features
+- 3 second dispatch overlay: `CODE WHITE - last seen near West Ridge`.
+- Rescue flow modes:
+  - `SEARCH` (signal + direction + beeps)
+  - `PROBE` (5 probes, place with `E`)
+  - `DIG` (hold `E` for 5s after STRIKE)
+  - `CARRY` (victim secured, slower movement, sprint disabled)
+- Victim hidden spawn at 1 of 5 fixed points each run.
+- Fixed evac zone with visible beacon pulse marker.
+- Transceiver feedback:
+  - Non-linear signal strength `0-100`
+  - Direction arrow toward victim
+  - WebAudio proximity beeps (`0.5s` far to `0.08s` close)
+- Survivability timer (`3:00`) and lose condition on timeout.
+- Win/lose overlays and restart with `R`.
+- Milestone 0 movement and terrain behavior preserved.
+
+## Controls
+- Move: `WASD` or Arrow keys
+- Sprint: `Shift`
+- Toggle mode: `Tab` (`SEARCH` <-> `PROBE`)
+- Action: `E` (probe place / hold dig)
+- Restart (after win/lose): `R`
 
 ## Run Locally
 1. Install dependencies:
@@ -28,15 +37,26 @@ npm run dev
 ```
 3. Open the shown local URL (typically `http://localhost:5173`).
 
+PowerShell with execution policy restrictions:
+```powershell
+npm.cmd install
+npm.cmd run dev
+```
+
 ## Build
 ```bash
 npm run build
 npm run preview
 ```
 
-## Quick Manual Test Plan (5 steps)
-1. Launch game and confirm player starts near top-left and camera follows smoothly.
-2. Hold `W` and verify player moves upward (top-down orientation is correct).
-3. Enter each terrain zone and confirm speed changes (`POWDER/TREES/RIDGE` slower, `GULLY` faster).
-4. Hold `Shift` while moving and confirm sprint speed increase with stamina draining; release and confirm regen.
-5. Try to run through tree/rock colliders and outside world edges; confirm collisions and map bounds prevent crossing.
+## Manual Test Plan (10 Steps)
+1. Launch game and confirm dispatch overlay appears for exactly ~3 seconds with text `CODE WHITE - last seen near West Ridge`.
+2. After dispatch, confirm mode shows `SEARCH` and timer starts at `03:00` counting down.
+3. Move in SEARCH and verify `SIGNAL` value updates and direction arrow points toward victim direction.
+4. While in SEARCH, confirm beeps are slower far away and much faster when close.
+5. Press `Tab` and confirm mode toggles `SEARCH` <-> `PROBE`.
+6. In PROBE, press `E` five times and confirm probe markers appear and HUD count decrements to `0`.
+7. Place a probe within strike radius and verify `STRIKE!` banner appears, strike sound plays, and mode switches to `DIG`.
+8. In DIG, hold `E` for about 5 seconds and verify progress bar fills, `VICTIM SECURED` appears, and mode changes to `CARRY`.
+9. In CARRY, confirm movement speed is reduced and sprint no longer activates.
+10. Reach EVAC to trigger WIN and `Press R to restart`; then run a separate attempt letting timer hit zero to confirm LOSE and restart with new victim spawn.

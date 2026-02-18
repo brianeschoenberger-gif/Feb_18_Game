@@ -1,0 +1,219 @@
+import Phaser from "phaser";
+import {
+  CARRY_SPEED_MULTIPLIER,
+  CARRY_SPRINT_ENABLED,
+  DIG_DURATION_SEC,
+  DISPATCH_DURATION_SEC,
+  PROBE_COUNT_MAX,
+  PROBE_SUCCESS_RADIUS,
+  RESCUE_TIMER_SEC,
+  SIGNAL_MAX_DISTANCE,
+  VICTIM_SPAWN_POINTS
+} from "../core/constants";
+
+export type RescueMode = "SEARCH" | "PROBE" | "DIG" | "CARRY";
+export type RunState = "DISPATCH" | "ACTIVE" | "WIN" | "LOSE";
+
+export interface RescueSnapshot {
+  readonly runState: RunState;
+  readonly mode: RescueMode;
+  readonly objective: string;
+  readonly timerSec: number;
+  readonly dispatchRemainingSec: number;
+  readonly probesRemaining: number;
+  readonly digProgress: number;
+  readonly signal: number;
+  readonly directionAngleRad: number;
+  readonly bannerText: string;
+  readonly hasVictimSecured: boolean;
+  readonly canInput: boolean;
+  readonly sprintEnabled: boolean;
+  readonly speedMultiplier: number;
+  readonly restartRequested: boolean;
+}
+
+interface RescueSystemOptions {
+  readonly scene: Phaser.Scene;
+  readonly playerSprite: Phaser.Physics.Arcade.Sprite;
+  readonly evacZone: Phaser.Geom.Rectangle;
+}
+
+export class RescueSystem {
+  private readonly scene: Phaser.Scene;
+  private readonly playerSprite: Phaser.Physics.Arcade.Sprite;
+  private readonly evacZone: Phaser.Geom.Rectangle;
+
+  private readonly keyTab: Phaser.Input.Keyboard.Key;
+  private readonly keyE: Phaser.Input.Keyboard.Key;
+  private readonly keyR: Phaser.Input.Keyboard.Key;
+
+  private runState: RunState = "DISPATCH";
+  private mode: RescueMode = "SEARCH";
+  private objective = "Stand by for dispatch";
+  private timerSec = RESCUE_TIMER_SEC;
+  private dispatchRemainingSec = DISPATCH_DURATION_SEC;
+  private probesRemaining = PROBE_COUNT_MAX;
+  private digProgress = 0;
+  private signal = 0;
+  private directionAngleRad = -Math.PI / 2;
+  private bannerText = "";
+  private bannerRemainingSec = 0;
+  private hasVictimSecured = false;
+  private restartRequested = false;
+
+  private readonly victimPoint: Phaser.Math.Vector2;
+  private readonly probeMarkers: Phaser.GameObjects.Group;
+
+  public constructor(options: RescueSystemOptions) {
+    this.scene = options.scene;
+    this.playerSprite = options.playerSprite;
+    this.evacZone = options.evacZone;
+
+    const keyboard = this.scene.input.keyboard!;
+    this.keyTab = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.TAB);
+    this.keyE = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E);
+    this.keyR = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.R);
+
+    const spawn = VICTIM_SPAWN_POINTS[Phaser.Math.Between(0, VICTIM_SPAWN_POINTS.length - 1)];
+    this.victimPoint = new Phaser.Math.Vector2(spawn.x, spawn.y);
+    this.probeMarkers = this.scene.add.group();
+  }
+
+  public update(dtSec: number): void {
+    this.restartRequested = false;
+    this.updateBanner(dtSec);
+    this.updateDirectionalSignal();
+
+    if (this.runState === "DISPATCH") {
+      this.dispatchRemainingSec = Math.max(0, this.dispatchRemainingSec - dtSec);
+      this.objective = "Dispatch incoming";
+      if (this.dispatchRemainingSec <= 0) {
+        this.runState = "ACTIVE";
+        this.mode = "SEARCH";
+        this.objective = "Find strongest transceiver signal";
+      }
+      return;
+    }
+
+    if (this.runState === "WIN" || this.runState === "LOSE") {
+      if (Phaser.Input.Keyboard.JustDown(this.keyR)) {
+        this.restartRequested = true;
+      }
+      return;
+    }
+
+    this.timerSec = Math.max(0, this.timerSec - dtSec);
+    if (this.timerSec <= 0) {
+      this.runState = "LOSE";
+      this.objective = "Victim lost";
+      this.pushBanner("TIME EXPIRED");
+      return;
+    }
+
+    if ((this.mode === "SEARCH" || this.mode === "PROBE") && Phaser.Input.Keyboard.JustDown(this.keyTab)) {
+      this.mode = this.mode === "SEARCH" ? "PROBE" : "SEARCH";
+      this.objective = this.mode === "SEARCH" ? "Track signal and close distance" : "Place probes near strongest signal";
+    }
+
+    if (this.mode === "PROBE") {
+      this.handleProbePlacement();
+    }
+
+    if (this.mode === "DIG") {
+      this.handleDigging(dtSec);
+    }
+
+    if (this.mode === "CARRY") {
+      this.objective = "Get to EVAC";
+      if (this.evacZone.contains(this.playerSprite.x, this.playerSprite.y)) {
+        this.runState = "WIN";
+        this.pushBanner("RESCUE COMPLETE");
+      }
+    }
+  }
+
+  public getSnapshot(): RescueSnapshot {
+    return {
+      runState: this.runState,
+      mode: this.mode,
+      objective: this.objective,
+      timerSec: this.timerSec,
+      dispatchRemainingSec: this.dispatchRemainingSec,
+      probesRemaining: this.probesRemaining,
+      digProgress: this.digProgress,
+      signal: this.signal,
+      directionAngleRad: this.directionAngleRad,
+      bannerText: this.bannerText,
+      hasVictimSecured: this.hasVictimSecured,
+      canInput: this.runState === "ACTIVE",
+      sprintEnabled: this.runState === "ACTIVE" && (this.mode !== "CARRY" ? true : CARRY_SPRINT_ENABLED),
+      speedMultiplier: this.runState === "ACTIVE" && this.mode === "CARRY" ? CARRY_SPEED_MULTIPLIER : 1,
+      restartRequested: this.restartRequested
+    };
+  }
+
+  public destroy(): void {
+    this.probeMarkers.clear(true, true);
+  }
+
+  private handleProbePlacement(): void {
+    if (!Phaser.Input.Keyboard.JustDown(this.keyE) || this.probesRemaining <= 0) {
+      return;
+    }
+
+    this.probesRemaining -= 1;
+    const marker = this.scene.add.image(this.playerSprite.x, this.playerSprite.y, "probeMarker");
+    this.probeMarkers.add(marker);
+
+    const distance = Phaser.Math.Distance.Between(this.playerSprite.x, this.playerSprite.y, this.victimPoint.x, this.victimPoint.y);
+    if (distance <= PROBE_SUCCESS_RADIUS) {
+      this.mode = "DIG";
+      this.digProgress = 0;
+      this.objective = "Hold E to DIG";
+      this.pushBanner("STRIKE!");
+    }
+  }
+
+  private handleDigging(dtSec: number): void {
+    if (!this.keyE.isDown) {
+      return;
+    }
+
+    this.digProgress = Math.min(1, this.digProgress + dtSec / DIG_DURATION_SEC);
+    if (this.digProgress >= 1) {
+      this.hasVictimSecured = true;
+      this.mode = "CARRY";
+      this.objective = "Get to EVAC";
+      this.pushBanner("VICTIM SECURED");
+    }
+  }
+
+  private updateDirectionalSignal(): void {
+    const dx = this.victimPoint.x - this.playerSprite.x;
+    const dy = this.victimPoint.y - this.playerSprite.y;
+    const distance = Math.hypot(dx, dy);
+
+    this.directionAngleRad = Math.atan2(dy, dx);
+
+    const normalized = Phaser.Math.Clamp(distance / SIGNAL_MAX_DISTANCE, 0, 1);
+    const strength = Phaser.Math.Clamp(1 - Math.pow(normalized, 1.65), 0, 1);
+    this.signal = Math.round(strength * 100);
+  }
+
+  private updateBanner(dtSec: number): void {
+    if (this.bannerRemainingSec <= 0) {
+      this.bannerText = "";
+      return;
+    }
+
+    this.bannerRemainingSec = Math.max(0, this.bannerRemainingSec - dtSec);
+    if (this.bannerRemainingSec <= 0) {
+      this.bannerText = "";
+    }
+  }
+
+  private pushBanner(text: string): void {
+    this.bannerText = text;
+    this.bannerRemainingSec = 1.6;
+  }
+}
