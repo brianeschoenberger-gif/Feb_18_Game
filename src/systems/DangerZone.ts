@@ -22,6 +22,7 @@ export class DangerZone {
   private readonly center = new Phaser.Math.Vector2(DANGER_CENTER.x, DANGER_CENTER.y);
   private phase: DangerPhase = "IDLE";
   private radius = DANGER_INITIAL_RADIUS;
+  private destroyed = false;
 
   public constructor(private readonly scene: Phaser.Scene) {
     this.graphics = this.scene.add.graphics();
@@ -29,6 +30,10 @@ export class DangerZone {
   }
 
   public update(_dtSec: number): void {
+    if (this.destroyed) {
+      return;
+    }
+
     this.radius += this.getGrowthRate() * _dtSec;
     this.draw();
   }
@@ -57,6 +62,10 @@ export class DangerZone {
   }
 
   public destroy(): void {
+    if (this.destroyed) {
+      return;
+    }
+    this.destroyed = true;
     this.graphics.destroy();
   }
 

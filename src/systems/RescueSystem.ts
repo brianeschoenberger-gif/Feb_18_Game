@@ -179,7 +179,6 @@ export class RescueSystem {
       return;
     }
     this.destroyed = true;
-    this.probeMarkers.clear(true, true);
   }
 
   private handleProbePlacement(): void {

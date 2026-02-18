@@ -133,13 +133,5 @@ export class GameScene extends Phaser.Scene {
     if (this.beep) {
       this.beep.destroy();
     }
-
-    if (this.rescueSystem) {
-      this.rescueSystem.destroy();
-    }
-
-    if (this.dangerZone) {
-      this.dangerZone.destroy();
-    }
   }
 }
