@@ -47,6 +47,14 @@ npm run build
 npm run preview
 ```
 
+## Known-Good Build/Deploy
+```powershell
+npm.cmd run build
+git add src/main.ts src/world/Map.ts README.md
+git commit -m "Stabilize Milestone 2 startup and pressure loop"
+git push
+```
+
 ## Manual Test Plan (10 Steps)
 1. Launch game and confirm dispatch overlay appears for ~3 seconds with `CODE WHITE - last seen near West Ridge`.
 2. After dispatch, confirm danger zone is visible and expanding slowly from upper map.

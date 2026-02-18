@@ -1,6 +1,12 @@
 import Phaser from "phaser";
 import { gameConfig } from "./core/gameConfig";
 
+declare global {
+  interface Window {
+    __cwStartupHooksAttached?: boolean;
+  }
+}
+
 function showStartupError(message: string): void {
   const root = document.getElementById("game-root");
   if (!root) {
@@ -18,13 +24,23 @@ function showStartupError(message: string): void {
   root.replaceChildren(errorBox);
 }
 
-window.addEventListener("error", (event) => {
-  showStartupError(event.message);
-});
+if (!window.__cwStartupHooksAttached) {
+  window.addEventListener("error", (event) => {
+    const details = event.error?.stack ? `${event.message}\n\n${event.error.stack}` : event.message;
+    showStartupError(details);
+  });
 
-window.addEventListener("unhandledrejection", (event) => {
-  showStartupError(String(event.reason));
-});
+  window.addEventListener("unhandledrejection", (event) => {
+    const reason = event.reason as { message?: string; stack?: string } | undefined;
+    if (reason?.stack) {
+      showStartupError(`${reason.message ?? "Unhandled rejection"}\n\n${reason.stack}`);
+      return;
+    }
+    showStartupError(String(event.reason));
+  });
+
+  window.__cwStartupHooksAttached = true;
+}
 
 try {
   new Phaser.Game(gameConfig);

@@ -23,7 +23,7 @@ export class RescueMap {
     const cycle = (timeMs % 1500) / 1500;
     this.beaconPulse.forEach((ring, index) => {
       const phase = (cycle + index * 0.33) % 1;
-      ring.radius = 16 + phase * 64;
+      ring.setScale(0.7 + phase * 2.2);
       ring.setAlpha(0.42 * (1 - phase));
     });
   }
